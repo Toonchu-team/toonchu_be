@@ -25,7 +25,7 @@ ENV = dotenv_values(".env")
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = ENV.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = []
 
@@ -44,6 +44,7 @@ SYSTEM_APPS = [
     "django.contrib.staticfiles",
     "drf_yasg",
     "rest_framework",
+    "drf_spectacular",
 ]
 
 INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS
