@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 CUSTOM_APPS = [
-
+    'users',
 ]
 
 SYSTEM_APPS = [
