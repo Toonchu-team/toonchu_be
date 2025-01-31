@@ -60,7 +60,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 class Provider(models.Model):
     PROVIDER_CHOICES = [
         ('google', 'Google'),
-        ('facebook', 'Facebook'),
+        ('naver', 'naver'),
         ('kakao', 'Kakao'),
     ]
 
