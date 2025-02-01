@@ -44,6 +44,7 @@ SYSTEM_APPS = [
     "django.contrib.staticfiles",
 ]
 
+
 THIRD_PARTY_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
@@ -51,6 +52,7 @@ THIRD_PARTY_APPS = [
 ]
 
 INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -67,7 +69,10 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+
+        "DIRS": []
+        ,
+
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -82,6 +87,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -95,6 +101,7 @@ DATABASES = {
         'PORT': ENV.get('DB_PORT'),
     }
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -119,9 +126,11 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
     # # JWT 토큰 활성화 후 적용
+
     'DEFAULT_AUTHENTICATION_CLASSES': ('rest_framework_simplejwt.authentication.JWTAuthentication',),
     'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated',),
 }
+
 
 # Swagger settings
 SPECTACULAR_SETTINGS = {
@@ -143,6 +152,7 @@ USE_I18N = True
 
 USE_TZ = False
 
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
@@ -153,10 +163,12 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 
 # Custom user model
 AUTH_USER_MODEL = 'users.CustomUser'
@@ -173,3 +185,4 @@ GOOGLE_CALLBACK_URL = ENV.get('GOOGLE_CALLBACK_URL')
 NAVER_CLIENT_ID = ENV.get('NAVER_CLIENT_ID')
 NAVER_CLIENT_SECRET = ENV.get('NAVER_CLIENT_SECRET')
 NAVER_CALLBACK_URL = ENV.get('NAVER_CALLBACK_URL')
+
