@@ -1,4 +1,5 @@
 from django.db import models
+from rest_framework import serializers
 
 class Time(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -14,6 +15,16 @@ class Webtoons(models.Model):
         ('kakaopage', '카카오페이지'),
         ('kakao', '카카오웹툰'),
     ]
+    SERIAL_DAY_CHOICES = [
+        ('mon','월요일'),
+        ('tue','화요일'),
+        ('wed','수요일'),
+        ('thu','목요일'),
+        ('fri','금요일'),
+        ('sat','토요일'),
+        ('sun','일요일'),
+        ('etc','기타'),
+    ]
     webtoons_id = models.IntegerField(primary_key=True)
     title = models.CharField(max_length=100)
     author = models.CharField(max_length=50)
@@ -25,8 +36,14 @@ class Webtoons(models.Model):
     is_new = models.BooleanField(default=True)
     webtoon_url = models.URLField(max_length=200)
     platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
+    Serial_day = models.CharField(max_length=20, choices=SERIAL_DAY_CHOICES)
     times = models.ForeignKey(Time, on_delete=models.CASCADE)
     count = models.ForeignKey(Count, on_delete=models.CASCADE)
+
+class WebtoonsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Webtoons
+        fields = {'__all__'}
 
 class Tag(models.Model):
     CATEGORY_CHOICES = [
