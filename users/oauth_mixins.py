@@ -25,7 +25,7 @@ class GoogleProviderInfoMixin:
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "email_field": "email",
-            "nickname_field": "name",
+            "nickname_field": "nickname",
             "profile_image_field": "picture",
             "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
         }

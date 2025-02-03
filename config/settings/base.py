@@ -16,7 +16,7 @@ from dotenv import dotenv_values
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# env 파일 로드
+# .env 파일 로드
 ENV = dotenv_values(".env")
 
 # Quick-start development settings - unsuitable for production
@@ -44,7 +44,6 @@ SYSTEM_APPS = [
     "django.contrib.staticfiles",
 ]
 
-
 THIRD_PARTY_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
@@ -52,7 +51,6 @@ THIRD_PARTY_APPS = [
 ]
 
 INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS
-
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -69,10 +67,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-
-        "DIRS": []
-        ,
-
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -87,7 +82,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -101,7 +95,6 @@ DATABASES = {
         'PORT': ENV.get('DB_PORT'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -126,11 +119,9 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
     # # JWT 토큰 활성화 후 적용
-
     'DEFAULT_AUTHENTICATION_CLASSES': ('rest_framework_simplejwt.authentication.JWTAuthentication',),
     'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated',),
 }
-
 
 # Swagger settings
 SPECTACULAR_SETTINGS = {
@@ -152,7 +143,6 @@ USE_I18N = True
 
 USE_TZ = False
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
@@ -163,26 +153,32 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
 # Custom user model
 AUTH_USER_MODEL = 'users.CustomUser'
 
+SITE_ID = 1
+
+LOGIN_REDIRECT_URL = '/'
+
 # OAuth settings
-KAKAO_CLIENT_ID = ENV.get('KAKAO_CLIENT_ID')
-KAKAO_CLIENT_SECRET = ENV.get('KAKAO_CLIENT_SECRET')
-KAKAO_CALLBACK_URL = ENV.get('KAKAO_CALLBACK_URL')
+# OAuth settings
+KAKAO_CLIENT_ID = ENV.get('KAKAO_REST_API_KEY')  # 변경된 부분
+KAKAO_CLIENT_SECRET = ENV.get('KAKAO_SECRET')
+KAKAO_CALLBACK_URL = ENV.get('KAKAO_REDIRECT_URI')
 
 GOOGLE_CLIENT_ID = ENV.get('GOOGLE_CLIENT_ID')
-GOOGLE_CLIENT_SECRET = ENV.get('GOOGLE_CLIENT_SECRET')
-GOOGLE_CALLBACK_URL = ENV.get('GOOGLE_CALLBACK_URL')
+GOOGLE_CLIENT_SECRET = ENV.get('GOOGLE_SECRET')
+GOOGLE_CALLBACK_URL = ENV.get('GOOGLE_REDIRECT_URI')
 
 NAVER_CLIENT_ID = ENV.get('NAVER_CLIENT_ID')
-NAVER_CLIENT_SECRET = ENV.get('NAVER_CLIENT_SECRET')
-NAVER_CALLBACK_URL = ENV.get('NAVER_CALLBACK_URL')
+NAVER_CLIENT_SECRET = ENV.get('NAVER_SECRET')
+NAVER_CALLBACK_URL = ENV.get('NAVER_REDIRECT_URI')
+
+# http로 변경 (또는 .env 파일의 URL들을 https로 변경)
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'
 
