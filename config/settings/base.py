@@ -50,9 +50,10 @@ THIRD_PARTY_APPS = [
     'drf_spectacular',
 ]
 
-INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS
+INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS #+ ['corsheaders']
 
 MIDDLEWARE = [
+    # "corsheaders.middleware.CorsMiddleware", 설치가 안됨 잠시 주석처리함
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -166,7 +167,6 @@ SITE_ID = 1
 LOGIN_REDIRECT_URL = '/'
 
 # OAuth settings
-# OAuth settings
 KAKAO_CLIENT_ID = ENV.get('KAKAO_REST_API_KEY')  # 변경된 부분
 KAKAO_CLIENT_SECRET = ENV.get('KAKAO_SECRET')
 KAKAO_CALLBACK_URL = ENV.get('KAKAO_REDIRECT_URI')
@@ -182,3 +182,13 @@ NAVER_CALLBACK_URL = ENV.get('NAVER_REDIRECT_URI')
 # http로 변경 (또는 .env 파일의 URL들을 https로 변경)
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'
 
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",  # React, Vue 등의 프론트엔드 서버 주소
+]
+CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
+
+GOOGLE_OAUTH2_SCOPE = ['email', 'profile']  # 새로운 설정 추가
+
+CORS_ALLOW_ALL_ORIGINS = True  # 개발 환경에서만 사용
