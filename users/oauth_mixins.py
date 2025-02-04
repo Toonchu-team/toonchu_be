@@ -12,7 +12,7 @@ class KaKaoProviderInfoMixin:
             "email_field": "email",
             "nickname_field": "nickname",
             "profile_image_field": "profile_image_url",
-            "authorization_url": "https://kauth.kakao.com/oauth/authorize",
+            "authorization_url": "https://kauth.kakao.com/oauth/authorize?response_type=code",
         }
 
 class GoogleProviderInfoMixin:
@@ -25,10 +25,11 @@ class GoogleProviderInfoMixin:
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "email_field": "email",
-            "nickname_field": "nickname",
+            "nickname_field": "name",
             "profile_image_field": "picture",
-            "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
+            "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth"
         }
+
 
 class NaverProviderInfoMixin:
     def get_provider_info(self):
@@ -42,5 +43,5 @@ class NaverProviderInfoMixin:
             "email_field": "email",
             "nickname_field": "nickname",
             "profile_image_field": "profile_image",
-            "authorization_url": "https://nid.naver.com/oauth2.0/authorize",
+            "authorization_url": "https://nid.naver.com/oauth2.0/authorize?response_type=code",
         }
