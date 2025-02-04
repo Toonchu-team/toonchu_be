@@ -47,6 +47,8 @@ class BaseSocialLoginView(APIView):
 
         return Response({"auth_url": auth_url})
 
+
+
 class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
         summary="카카오 로그인 URL 요청",
@@ -73,6 +75,8 @@ class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
     )
     def get(self, request):
         return super().get(request)
+
+
 
 class OAuthCallbackView(APIView):
     permission_classes = [AllowAny]
@@ -139,13 +143,15 @@ class OAuthCallbackView(APIView):
             ),
         ]
     )
+
+    # 인가 코드 확인
     def get(self, request, *args, **kwargs):
         code = request.GET.get("code")
         if not code:
             return Response({"msg": "인가코드가 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
 
         provider_info = self.get_provider_info()
-        token_response = self.get_token(code, provider_info)
+        token_response = self.get_token(code, provider_info)        # 액세스 토큰 획득
 
         if token_response.status_code != status.HTTP_200_OK:
             return Response(
@@ -154,7 +160,7 @@ class OAuthCallbackView(APIView):
             )
 
         access_token = token_response.json().get("access_token")
-        profile_response = self.get_profile(access_token, provider_info)
+        profile_response = self.get_profile(access_token, provider_info)        # 사용자 프로필 정보 획득
 
         if profile_response.status_code != status.HTTP_200_OK:
             return Response(
@@ -162,8 +168,10 @@ class OAuthCallbackView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # 로그인 또는 회원가입 처리
         return self.login_process_user(request, profile_response.json(), provider_info)
 
+    # 토큰 획득 메서드
     def get_token(self, code, provider_info):
         return requests.post(
             provider_info["token_url"],
@@ -177,6 +185,7 @@ class OAuthCallbackView(APIView):
             },
         )
 
+    # 프로필 정보 획득 메서드
     def get_profile(self, access_token, provider_info):
         return requests.get(
             provider_info["profile_url"],
@@ -186,9 +195,10 @@ class OAuthCallbackView(APIView):
             },
         )
 
+    # 로그인 또는 회원가입 처리 메서드
     def login_process_user(self, request, profile_res_data, provider_info):
         email, nick_name, provider_id = self.get_user_data(provider_info, profile_res_data)
-
+        # 기존 사용자 확인 또는 새 사용자 생성
         try:
             provider = Provider.objects.get(provider=provider_info['name'].lower(), provider_id=provider_id)
             user = provider.user
@@ -205,6 +215,7 @@ class OAuthCallbackView(APIView):
                 email=email
             )
 
+        # JWT 토큰 생성 및 응답
         refresh_token = RefreshToken.for_user(user)
         response_data = {
             "email": user.email,
@@ -217,6 +228,8 @@ class OAuthCallbackView(APIView):
 
         return response
 
+
+    # 소셜 플랫폼별 사용자 데이터 추출 메서드
     def get_user_data(self, provider_info, profile_res_data):
         if provider_info["name"] == "구글":
             email = profile_res_data.get(provider_info["email_field"])
@@ -235,6 +248,8 @@ class OAuthCallbackView(APIView):
             provider_id = profile_res_data.get("id")
         return email, nick_name, provider_id
 
+
+# 각 소셜 플랫폼별 콜백 처리 뷰
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
         summary="카카오 OAuth 콜백",
