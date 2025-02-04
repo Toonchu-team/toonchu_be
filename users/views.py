@@ -9,15 +9,16 @@ from abc import abstractmethod
 from .models import Provider
 from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes
-from config import settings
 
 User = get_user_model()
+
 
 class BaseSocialLoginView(APIView):
     permission_classes = [AllowAny]
 
-    def get_auth_url(self):
-        raise NotImplementedError("Subclasses must implement get_auth_url method")
+    @abstractmethod
+    def get_provider_info(self):
+        pass
 
     @extend_schema(
         summary="소셜 로그인 URL 요청",
@@ -25,10 +26,30 @@ class BaseSocialLoginView(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def get(self, request):
-        auth_url = self.get_auth_url()
+        provider_info = self.get_provider_info()
+
+        # Google의 경우 다르게 처리
+        if provider_info["name"] == "구글":
+            auth_url = (
+                f"{provider_info['authorization_url']}"
+                f"?response_type=code"
+                f"&client_id={provider_info['client_id']}"
+                f"&redirect_uri={provider_info['callback_url']}"
+                f"&scope=email%20profile"
+                f"&access_type=offline"
+            )
+        else:
+            # 카카오와 네이버는 기존 방식 유지
+            auth_url = (
+                f"{provider_info['authorization_url']}"
+                f"&client_id={provider_info['client_id']}"
+                f"&redirect_uri={provider_info['callback_url']}"
+            )
+
         return Response({"auth_url": auth_url})
 
-class KakaoLoginView(BaseSocialLoginView):
+
+class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
         summary="카카오 로그인 URL 요청",
         description="카카오 로그인을 위한 인증 URL을 반환합니다.",
@@ -37,10 +58,7 @@ class KakaoLoginView(BaseSocialLoginView):
     def get(self, request):
         return super().get(request)
 
-    def get_auth_url(self):
-        return f"https://kauth.kakao.com/oauth/authorize?client_id={settings.base.KAKAO_CLIENT_ID}&redirect_uri={settings.base.KAKAO_CALLBACK_URL}&response_type=code"
-
-class GoogleLoginView(BaseSocialLoginView):
+class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
         summary="구글 로그인 URL 요청",
         description="구글 로그인을 위한 인증 URL을 반환합니다.",
@@ -49,10 +67,7 @@ class GoogleLoginView(BaseSocialLoginView):
     def get(self, request):
         return super().get(request)
 
-    def get_auth_url(self):
-        return f"https://accounts.google.com/o/oauth2/v2/auth?client_id={settings.base.GOOGLE_CLIENT_ID}&redirect_uri={settings.base.GOOGLE_CALLBACK_URL}&response_type=code&scope=email profile"
-
-class NaverLoginView(BaseSocialLoginView):
+class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
         summary="네이버 로그인 URL 요청",
         description="네이버 로그인을 위한 인증 URL을 반환합니다.",
@@ -60,9 +75,6 @@ class NaverLoginView(BaseSocialLoginView):
     )
     def get(self, request):
         return super().get(request)
-
-    def get_auth_url(self):
-        return f"https://nid.naver.com/oauth2.0/authorize?client_id={settings.base.NAVER_CLIENT_ID}&redirect_uri={settings.base.NAVER_CALLBACK_URL}&response_type=code"
 
 class OAuthCallbackView(APIView):
     permission_classes = [AllowAny]
@@ -234,7 +246,6 @@ class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
         summary="구글 OAuth 콜백",
         description="구글 소셜 로그인 콜백을 처리합니다.",
         tags=["Google Social"],
-
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
@@ -244,7 +255,6 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
         summary="네이버 OAuth 콜백",
         description="네이버 소셜 로그인 콜백을 처리합니다.",
         tags=["Naver Social"],
-
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
