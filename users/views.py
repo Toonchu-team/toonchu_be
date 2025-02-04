@@ -10,6 +10,8 @@ from .models import Provider
 from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes
 
+from .serializers import LogoutSerializer
+
 User = get_user_model()
 
 class BaseSocialLoginView(APIView):
@@ -276,3 +278,26 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
+
+
+# 사용자 로그아웃을 처리하는 뷰
+class LogoutView(APIView):
+    serializer_class = LogoutSerializer
+
+    @extend_schema(
+        eummary="로그아웃 처리",
+        description="로그아웃 처리합니다. 로그아웃과 동시에 token값은 blacklist에 보내서 다시 사용 불가",
+        tags=["Logout"],
+    )
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            try:
+                refresh_token = serializer.validated_data['refresh_token']
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                return Response({"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
