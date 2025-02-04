@@ -12,7 +12,6 @@ from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes
 
 User = get_user_model()
 
-
 class BaseSocialLoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -47,7 +46,6 @@ class BaseSocialLoginView(APIView):
             )
 
         return Response({"auth_url": auth_url})
-
 
 class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
@@ -93,6 +91,7 @@ class OAuthCallbackView(APIView):
                 'description': 'OAuth 인증 코드',
                 'required': True,
                 'type': 'string',
+                'example': '0w57FBY27HJ6xCUZAcG7Z-QlFBUnT-qKlMLD2R7lmDJM06Bsvoj4BQAAAAQKPCJSAAABlM-9ooKGtS2__sNdBQ'     # 인가코드 입력예시
             }
         ],
         responses={
@@ -102,6 +101,7 @@ class OAuthCallbackView(APIView):
         examples=[
             OpenApiExample(
                 'Successful login',
+                description='인가코드를 통한 로그인 성공 응답',
                 value={
                     "email": "user@example.com",
                     "nick_name": "User Nickname",
@@ -112,6 +112,7 @@ class OAuthCallbackView(APIView):
             ),
             OpenApiExample(
                 'Failed - No authorization code',
+                description='인가코드가 없는 경우',
                 value={
                     "msg": "인가코드가 필요합니다."
                 },
@@ -120,6 +121,7 @@ class OAuthCallbackView(APIView):
             ),
             OpenApiExample(
                 'Failed - Token retrieval error',
+                description='토큰 발급 실패',
                 value={
                     "msg": "서버로 부터 토큰을 받아오는데 실패하였습니다."
                 },
@@ -128,6 +130,7 @@ class OAuthCallbackView(APIView):
             ),
             OpenApiExample(
                 'Failed - Profile retrieval error',
+                description='프로필 조회 실패',
                 value={
                     "msg": "서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."
                 },
