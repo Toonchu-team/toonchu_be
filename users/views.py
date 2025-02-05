@@ -240,7 +240,7 @@ class OAuthCallbackView(APIView):
     def get_user_data(self, provider_info, profile_res_data):
         if provider_info["name"] == "구글":
             email = profile_res_data.get(provider_info["email_field"])
-            nick_name = profile_res_data.get(provider_info["nickname_field"])
+            nick_name = profile_res_data.get(provider_info["nickname_field"])  # 여기서는 'name'을 가져옵니다
             provider_id = profile_res_data.get("id")
         elif provider_info["name"] == "네이버":
             profile_data = profile_res_data.get("response")
