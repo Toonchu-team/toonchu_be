@@ -1,6 +1,8 @@
 from django.urls import path
+
+
 from .views import KakaoCallbackView, GoogleCallbackView, NaverCallbackView, NaverLoginView, GoogleLoginView, \
-    KakaoLoginView, LogoutView
+    KakaoLoginView, LogoutView, UserProfileUpdateView
 
 urlpatterns = [
     path('oauth/kakao/callback/', KakaoCallbackView.as_view(), name='kakao-callback'),
@@ -12,4 +14,6 @@ urlpatterns = [
     path('login/naver/', NaverLoginView.as_view(), name='naver-login'),
 
     path('logout/', LogoutView.as_view(), name='logout'),
+
+    path('profile/update/', UserProfileUpdateView.as_view(), name='user-profile-update'),
 ]
