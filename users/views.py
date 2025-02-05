@@ -1,16 +1,21 @@
 from django.contrib.auth import get_user_model
+from django.core.validators import MinLengthValidator, MaxLengthValidator
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-import requests
-from abc import abstractmethod
-from .models import Provider
-from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
+from rest_framework.exceptions import ValidationError
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes
 
-from .serializers import LogoutSerializer
+from .models import Provider, CustomUser
+from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
+from .serializers import LogoutSerializer, UserProfileUpdateSerializer
+
+from datetime import timezone
+from abc import abstractmethod
+import requests
+import os
 
 User = get_user_model()
 
@@ -285,7 +290,7 @@ class LogoutView(APIView):
     serializer_class = LogoutSerializer
 
     @extend_schema(
-        eummary="로그아웃 처리",
+        summary="로그아웃 처리",
         description="로그아웃 처리합니다. 로그아웃과 동시에 token값은 blacklist에 보내서 다시 사용 불가",
         tags=["Logout"],
     )
@@ -300,4 +305,51 @@ class LogoutView(APIView):
                 return Response({"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
             except Exception as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfileUpdateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]  # 사용자 토큰 조회 및 확인 자동 실행
+
+    @extend_schema(
+        summary="사용자 프로필 수정",
+        description="인증된 사용자의 닉네임과 프로필 이미지를 수정합니다.",
+        request=UserProfileUpdateSerializer,
+        responses={200: UserProfileUpdateSerializer},
+        tags=["User Profile"],
+    )
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            new_nick_name = serializer.validated_data.get("nick_name")  # 닉네임 유효성 검사
+            if new_nick_name:
+                try:
+                    MinLengthValidator(2)(new_nick_name)  # 닉네임의 최소 길이 2글자로 설정
+                    MaxLengthValidator(16)(new_nick_name)  # 닉네임의 최대 길이 16글자로 설정
+                except ValidationError:
+                    return Response({"error": "닉네임은 2글자 이상 16자 이하여야 합니다"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 프로필 이미지 처리
+            profile_img = request.FILES.get('profile_img')
+            if profile_img:
+                # 도커 볼륨을 사용하여 이미지 저장
+                upload_dir = '/app/media/profile'  # 도커 볼륨 경로
+                os.makedirs(upload_dir, exist_ok=True)
+                file_path = os.path.join(upload_dir, f"{user.id}_{profile_img.name}")
+
+                with open(file_path, 'wb+') as destination:
+                    for chunk in profile_img.chunks():
+                        destination.write(chunk)
+
+                # 데이터베이스에 이미지 경로 저장
+                user.profile_img = f"/media/profile/{user.id}_{profile_img.name}"
+
+            # 프로필 업데이트 시간 저장
+            user.is_updated = timezone.now()
+            user.save()
+
+            serializer.save()
+            return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

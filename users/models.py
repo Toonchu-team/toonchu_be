@@ -35,6 +35,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_adult = models.BooleanField(default=False)  # 성인 인증 여부
     is_staff = models.BooleanField(default=False)  # 관리자 여부
     last_login = models.DateTimeField(auto_now=True)  # 마지막 로그인 시간
+    is_updated = models.DateTimeField(null=True, blank=True)    #업데이트 시간
 
     # groups와 user_permissions에 related_name 추가
     groups = models.ManyToManyField(
