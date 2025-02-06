@@ -27,11 +27,11 @@ class Webtoons(CommonModel):
         ('sat','토요일'),
         ('sun','일요일'),
     ]
-    webtoons_id = models.IntegerField(primary_key=True, null=False)
+    webtoons_id = models.AutoField(primary_key=True, null=False)
     title = models.CharField(max_length=100, null=False, blank=False)
     author = models.CharField(max_length=50, null=False, blank=False)
     description = models.TextField()
-    thumbnail = models.FileField(upload_to='webtoons/thumbnails', null=False, blank=False)
+    thumbnail = models.ImageField(upload_to='webtoons/thumbnails', null=False, blank=False)
     age_rating = models.CharField(max_length=10)
     publication_day = models.DateField(null=False, blank=False)
     is_completed = models.BooleanField(default=False)
