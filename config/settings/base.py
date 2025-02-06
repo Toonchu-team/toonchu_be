@@ -16,7 +16,7 @@ from dotenv import dotenv_values
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# env 파일 로드
+# .env 파일 로드
 ENV = dotenv_values(".env")
 
 # Quick-start development settings - unsuitable for production
@@ -24,15 +24,15 @@ ENV = dotenv_values(".env")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = ENV.get("SECRET_KEY")
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 CUSTOM_APPS = [
-    "users",
+    'users',
     "webtoons",
 ]
 
@@ -43,15 +43,18 @@ SYSTEM_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "drf_yasg",
-    "rest_framework",
-    "drf_spectacular",
 ]
 
-INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS
+THIRD_PARTY_APPS = [
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'drf_spectacular',
+]
 
+INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS #+ ['corsheaders']
 
 MIDDLEWARE = [
+    # "corsheaders.middleware.CorsMiddleware", 설치가 안됨 잠시 주석처리함
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -60,13 +63,13 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
 ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": []
-        ,
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -81,7 +84,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -95,7 +97,6 @@ DATABASES = {
         'PORT': ENV.get('DB_PORT'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -120,9 +121,10 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
     # # JWT 토큰 활성화 후 적용
-    # 'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework_simplejwt.authentication.JWTAuthentication',],
-    # 'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated',],
+    'DEFAULT_AUTHENTICATION_CLASSES': ('rest_framework_simplejwt.authentication.JWTAuthentication',),
+    'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated',),
 }
+
 # Swagger settings
 SPECTACULAR_SETTINGS = {
     'TITLE': 'toonchu',
@@ -148,8 +150,49 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media files
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Custom user model
+AUTH_USER_MODEL = 'users.CustomUser'
+
+SITE_ID = 1
+
+LOGIN_REDIRECT_URL = '/'
+
+# OAuth settings
+KAKAO_CLIENT_ID = ENV.get('KAKAO_REST_API_KEY')  # 변경된 부분
+KAKAO_CLIENT_SECRET = ENV.get('KAKAO_SECRET')
+KAKAO_CALLBACK_URL = ENV.get('KAKAO_REDIRECT_URI')
+
+GOOGLE_CLIENT_ID = ENV.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = ENV.get('GOOGLE_SECRET')
+GOOGLE_CALLBACK_URL = ENV.get('GOOGLE_REDIRECT_URI')
+
+NAVER_CLIENT_ID = ENV.get('NAVER_CLIENT_ID')
+NAVER_CLIENT_SECRET = ENV.get('NAVER_SECRET')
+NAVER_CALLBACK_URL = ENV.get('NAVER_REDIRECT_URI')
+
+# http로 변경 (또는 .env 파일의 URL들을 https로 변경)
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3000",  # React, Vue 등의 프론트엔드 서버 주소
+]
+CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
+
+# GOOGLE_OAUTH2_SCOPE = ['email', 'profile']  # 새로운 설정 추가
+
+CORS_ALLOW_ALL_ORIGINS = True  # 개발 환경에서만 사용
