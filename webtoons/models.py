@@ -43,11 +43,6 @@ class Webtoons(CommonModel):
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
 
-class WebtoonsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Webtoons
-        fields = {'__all__'}
-
 class Tag(models.Model):
     CATEGORY_CHOICES = [
         ("genre","장르"),
