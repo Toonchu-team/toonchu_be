@@ -33,6 +33,7 @@ ALLOWED_HOSTS = []
 # Application definition
 CUSTOM_APPS = [
     'users',
+    "webtoons",
 ]
 
 SYSTEM_APPS = [
@@ -144,6 +145,7 @@ USE_I18N = True
 
 USE_TZ = False
 
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
@@ -185,6 +187,8 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'
 
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
     "http://localhost:3000",  # React, Vue 등의 프론트엔드 서버 주소
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
