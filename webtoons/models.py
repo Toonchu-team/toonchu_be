@@ -1,6 +1,5 @@
 from django.db import models
 
-from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from common.models import CommonModel
 
@@ -12,6 +11,7 @@ class Webtoons(CommonModel):
         ('others', '기타'),
     ]
     CYCLE_CHOICES = [
+        ('1weeks', '1주'),
         ('2weeks', '2주'),
         ('10days', '10일'),
         ('20days', '20일'),
@@ -43,7 +43,7 @@ class Webtoons(CommonModel):
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
 
-class Tag(models.Model):
+class Tags(models.Model):
     CATEGORY_CHOICES = [
         ("genre","장르"),
         ("matter","소재"),
@@ -60,7 +60,7 @@ class Tag(models.Model):
     tags_name = models.CharField(max_length=20, unique=True)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
 
-class WebtoonTag(models.Model):
+class WebtoonTags(models.Model):
     webtoontags_id = models.IntegerField(primary_key=True)
     webtoons_id = models.ForeignKey(Webtoons, on_delete=models.CASCADE)
-    tags_id = models.ForeignKey(Tag, on_delete=models.CASCADE)
+    tags_id = models.ForeignKey(Tags, on_delete=models.CASCADE)
