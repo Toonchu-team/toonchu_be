@@ -1,19 +1,22 @@
 from django.db import models
+
 from rest_framework import serializers
+from multiselectfield import MultiSelectField
+from common.models import CommonModel
 
-class Time(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-class Count(models.Model):
-    view_count = models.IntegerField(default=0)
-    like_count = models.IntegerField(default=0)
-
-class Webtoons(models.Model):
+class Webtoons(CommonModel):
     PLATFORM_CHOICES = [
         ('naver', '네이버'),
         ('kakaopage', '카카오페이지'),
         ('kakao', '카카오웹툰'),
+        ('others', '기타'),
+    ]
+    CYCLE_CHOICES = [
+        ('2weeks', '2주'),
+        ('10days', '10일'),
+        ('20days', '20일'),
+        ('month', '한달'),
+        ('etc.', '기타'),
     ]
     SERIAL_DAY_CHOICES = [
         ('mon','월요일'),
@@ -23,22 +26,22 @@ class Webtoons(models.Model):
         ('fri','금요일'),
         ('sat','토요일'),
         ('sun','일요일'),
-        ('etc','기타'),
     ]
-    webtoons_id = models.IntegerField(primary_key=True)
-    title = models.CharField(max_length=100)
-    author = models.CharField(max_length=50)
+    webtoons_id = models.IntegerField(primary_key=True, null=False)
+    title = models.CharField(max_length=100, null=False, blank=False)
+    author = models.CharField(max_length=50, null=False, blank=False)
     description = models.TextField()
-    thumbnail = models.FileField(upload_to='webtoons/thumbnails')
+    thumbnail = models.FileField(upload_to='webtoons/thumbnails', null=False, blank=False)
     age_rating = models.CharField(max_length=10)
-    publication_day = models.DateField()
+    publication_day = models.DateField(null=False, blank=False)
     is_completed = models.BooleanField(default=False)
     is_new = models.BooleanField(default=True)
-    webtoon_url = models.URLField(max_length=200)
-    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
-    Serial_day = models.CharField(max_length=20, choices=SERIAL_DAY_CHOICES)
-    times = models.ForeignKey(Time, on_delete=models.CASCADE)
-    count = models.ForeignKey(Count, on_delete=models.CASCADE)
+    webtoon_url = models.URLField(max_length=200, null=False, blank=False)
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, null=False, blank=False)
+    serialization_cycle = models.CharField(max_length=20, choices=CYCLE_CHOICES, null=False, blank=False)
+    serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES, null=False, blank=False)
+    view_count = models.PositiveIntegerField(default=0)
+    like_count = models.PositiveIntegerField(default=0)
 
 class WebtoonsSerializer(serializers.ModelSerializer):
     class Meta:
