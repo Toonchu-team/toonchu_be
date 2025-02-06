@@ -6,7 +6,7 @@ from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
-from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes, OpenApiResponse
 
 from .models import Provider, CustomUser
 from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
@@ -69,6 +69,7 @@ class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
         summary="구글 로그인 URL 요청",
         description="구글 로그인을 위한 인증 URL을 반환합니다.",
+        responses={200: OpenApiResponse(response={"auth_url": "string"})},
         tags=["Google Social"],
     )
     def get(self, request):
