@@ -32,6 +32,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 CUSTOM_APPS = [
+    "users",
     "webtoons",
 ]
 
