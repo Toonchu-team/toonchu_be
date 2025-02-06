@@ -189,4 +189,6 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
+
 GOOGLE_OAUTH2_SCOPE = ['email', 'profile']  # 새로운 설정 추가
+
