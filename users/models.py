@@ -38,29 +38,33 @@ class UserManager(BaseUserManager):
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-
     PROVIDER_CHOICES = [
         ('google', 'Google'),
         ('naver', 'naver'),
         ('kakao', 'Kakao'),
     ]
 
-
-    email = models.EmailField(unique=True)  # 이메일 정보
-    nick_name = models.CharField(max_length=100, unique=True)  # 닉네임
-    profile_img = models.ImageField(upload_to='profile', blank=True, null=True)  # 프로필 이미지
-    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)  # 제공사 이름
-    is_adult = models.BooleanField(default=False)  # 성인 인증 여부
-    is_staff = models.BooleanField(default=False)  # 관리자 여부
-    is_updated = models.DateTimeField(null=True, blank=True)    #업데이트 시간
+    email = models.EmailField(null=False)  # unique=True 제거
+    nick_name = models.CharField(max_length=100, unique=True)
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    profile_img = models.ImageField(upload_to='profile', blank=True, null=True)
+    is_adult = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=False)
+    is_updated = models.DateTimeField(null=True, blank=True)
     is_created = models.DateTimeField(auto_now_add=True)
-
-    def set_un_user_password(self):
-        self.set_unusable_password()  # set_unusable_password사용 비밀번호 입력하여 로그인 하는 방식 제거 Oauth 이용한 소셜로그인 사용을 위해 추가
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = 'nick_name'
+
+
+    class Meta:
+        db_table = 'users_customuser'
+        unique_together = ['email', 'provider']
 
     def __str__(self):
         return self.email
+
+    def set_un_user_password(self):
+        self.set_unusable_password()
+
