@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from django.http import HttpResponseNotAllowed
+from django.utils import timezone
 from rest_framework import generics, status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -9,7 +11,7 @@ from .models import CustomUser
 from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
 from .serializers import LogoutSerializer, UserProfileSerializer, SocialLoginSerializer
 
-from django.utils import timezone
+
 from abc import abstractmethod
 import requests
 import os
@@ -197,10 +199,35 @@ class LogoutView(generics.CreateAPIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-class UserProfileUpdateView(generics.UpdateAPIView):
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
+from django.http import HttpResponseNotAllowed
+import os
+from django.utils import timezone
+
+from .serializers import UserProfileSerializer
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserProfileSerializer
     queryset = User.objects.all()
+
+    def get_object(self):
+        return self.request.user
+
+    @extend_schema(
+        summary="사용자 프로필 조회",
+        description="인증된 사용자의 프로필 정보를 조회합니다.",
+        responses={200: UserProfileSerializer},
+        tags=["User Profile"],
+    )
+    def get(self, request, *args, **kwargs):  # GET 메서드 처리
+        serializer = self.get_serializer(self.get_object())
+        return Response(serializer.data)
 
     @extend_schema(
         summary="사용자 프로필 수정",
@@ -209,17 +236,15 @@ class UserProfileUpdateView(generics.UpdateAPIView):
         responses={200: UserProfileSerializer},
         tags=["User Profile"],
     )
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
+    def post(self, request, *args, **kwargs):  # POST 메서드만 처리
+        if request.method not in ['POST']:
+            return HttpResponseNotAllowed(["POST"])
+
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-
-        if getattr(instance, '_prefetched_objects_cache', None):
-            instance._prefetched_objects_cache = {}
-
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def perform_update(self, serializer):
         user = self.request.user
@@ -238,6 +263,3 @@ class UserProfileUpdateView(generics.UpdateAPIView):
         user.is_updated = timezone.now()
         user.save()
         serializer.save()
-
-    def get_object(self):
-        return self.request.user
