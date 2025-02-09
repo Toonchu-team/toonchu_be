@@ -1,19 +1,28 @@
 from django.urls import path
-
-
-from .views import KakaoCallbackView, GoogleCallbackView, NaverCallbackView, NaverLoginView, GoogleLoginView, \
-    KakaoLoginView, LogoutView, UserProfileUpdateView
+<<<<<<< HEAD
+from .views import (
+    KakaoLoginView,
+    GoogleLoginView,
+    NaverLoginView,
+    LogoutView,
+    UserProfileView,
+    NaverCallbackView,
+    GoogleCallbackView,
+    KakaoCallbackView
+)
 
 urlpatterns = [
-    path('oauth/kakao/callback/', KakaoCallbackView.as_view(), name='kakao-callback'),
-    path('oauth/google/callback/', GoogleCallbackView.as_view(), name='google-callback'),
-    path('oauth/naver/callback/', NaverCallbackView.as_view(), name='naver-callback'),
-
+    # Social Login URLs
     path('login/kakao/', KakaoLoginView.as_view(), name='kakao-login'),
     path('login/google/', GoogleLoginView.as_view(), name='google-login'),
     path('login/naver/', NaverLoginView.as_view(), name='naver-login'),
 
-    path('logout/', LogoutView.as_view(), name='logout'),
+    # Social Callback URLs - GET 메소드 제거
+    path('callback/google/', GoogleCallbackView.as_view(), name='google-callback'),
+    path('callback/kakao/', KakaoCallbackView.as_view(), name='kakao-callback'),
+    path('callback/naver/', NaverCallbackView.as_view(), name='naver-callback'),
 
-    path('profile/update/', UserProfileUpdateView.as_view(), name='user-profile-update'),
+    # User Management URLs
+    path('logout/', LogoutView.as_view(), name='logout'),
+    path('profile/update/', UserProfileView.as_view(), name='profile-update'),
 ]
