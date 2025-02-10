@@ -1,5 +1,6 @@
 from django.conf import settings
 
+
 class KaKaoProviderInfoMixin:
     def get_provider_info(self):
         return {
@@ -15,6 +16,7 @@ class KaKaoProviderInfoMixin:
             "authorization_url": "https://kauth.kakao.com/oauth/authorize?response_type=code",
         }
 
+
 class GoogleProviderInfoMixin:
     def get_provider_info(self):
         return {
@@ -27,7 +29,7 @@ class GoogleProviderInfoMixin:
             "email_field": "email",
             "nickname_field": "name",
             "profile_image_field": "picture",
-            "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth"
+            "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
         }
 
 

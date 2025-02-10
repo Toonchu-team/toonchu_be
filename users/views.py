@@ -6,10 +6,19 @@ from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
-from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes, OpenApiResponse
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiExample,
+    OpenApiTypes,
+    OpenApiResponse,
+)
 
 from .models import Provider, CustomUser
-from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
+from .oauth_mixins import (
+    KaKaoProviderInfoMixin,
+    GoogleProviderInfoMixin,
+    NaverProviderInfoMixin,
+)
 from .serializers import LogoutSerializer, UserProfileUpdateSerializer
 
 from datetime import timezone
@@ -18,6 +27,7 @@ import requests
 import os
 
 User = get_user_model()
+
 
 class BaseSocialLoginView(APIView):
     permission_classes = [AllowAny]
@@ -55,7 +65,6 @@ class BaseSocialLoginView(APIView):
         return Response({"auth_url": auth_url})
 
 
-
 class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
         summary="카카오 로그인 URL 요청",
@@ -64,6 +73,7 @@ class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     )
     def get(self, request):
         return super().get(request)
+
 
 class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
@@ -75,6 +85,7 @@ class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
     def get(self, request):
         return super().get(request)
 
+
 class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
     @extend_schema(
         summary="네이버 로그인 URL 요청",
@@ -83,7 +94,6 @@ class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
     )
     def get(self, request):
         return super().get(request)
-
 
 
 class OAuthCallbackView(APIView):
@@ -98,12 +108,12 @@ class OAuthCallbackView(APIView):
         description="소셜 로그인 인증 코드를 받아 사용자 정보를 조회하고 로그인 또는 회원가입을 처리합니다.",
         parameters=[
             {
-                'name': 'code',
-                'in': 'query',
-                'description': 'OAuth 인증 코드',
-                'required': True,
-                'type': 'string',
-                'example': '0w57FBY27HJ6xCUZAcG7Z-QlFBUnT-qKlMLD2R7lmDJM06Bsvoj4BQAAAAQKPCJSAAABlM-9ooKGtS2__sNdBQ'     # 인가코드 입력예시
+                "name": "code",
+                "in": "query",
+                "description": "OAuth 인증 코드",
+                "required": True,
+                "type": "string",
+                "example": "0w57FBY27HJ6xCUZAcG7Z-QlFBUnT-qKlMLD2R7lmDJM06Bsvoj4BQAAAAQKPCJSAAABlM-9ooKGtS2__sNdBQ",  # 인가코드 입력예시
             }
         ],
         responses={
@@ -112,67 +122,69 @@ class OAuthCallbackView(APIView):
         },
         examples=[
             OpenApiExample(
-                'Successful login',
-                description='인가코드를 통한 로그인 성공 응답',
+                "Successful login",
+                description="인가코드를 통한 로그인 성공 응답",
                 value={
                     "email": "user@example.com",
                     "nick_name": "User Nickname",
                     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                 },
                 response_only=True,
-                status_codes=["200"]
+                status_codes=["200"],
             ),
             OpenApiExample(
-                'Failed - No authorization code',
-                description='인가코드가 없는 경우',
-                value={
-                    "msg": "인가코드가 필요합니다."
-                },
+                "Failed - No authorization code",
+                description="인가코드가 없는 경우",
+                value={"msg": "인가코드가 필요합니다."},
                 response_only=True,
-                status_codes=["400"]
+                status_codes=["400"],
             ),
             OpenApiExample(
-                'Failed - Token retrieval error',
-                description='토큰 발급 실패',
-                value={
-                    "msg": "서버로 부터 토큰을 받아오는데 실패하였습니다."
-                },
+                "Failed - Token retrieval error",
+                description="토큰 발급 실패",
+                value={"msg": "서버로 부터 토큰을 받아오는데 실패하였습니다."},
                 response_only=True,
-                status_codes=["400"]
+                status_codes=["400"],
             ),
             OpenApiExample(
-                'Failed - Profile retrieval error',
-                description='프로필 조회 실패',
-                value={
-                    "msg": "서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."
-                },
+                "Failed - Profile retrieval error",
+                description="프로필 조회 실패",
+                value={"msg": "서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."},
                 response_only=True,
-                status_codes=["400"]
+                status_codes=["400"],
             ),
-        ]
+        ],
     )
 
     # 인가 코드 확인
     def get(self, request, *args, **kwargs):
         code = request.GET.get("code")
         if not code:
-            return Response({"msg": "인가코드가 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"msg": "인가코드가 필요합니다."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         provider_info = self.get_provider_info()
-        token_response = self.get_token(code, provider_info)        # 액세스 토큰 획득
+        token_response = self.get_token(code, provider_info)  # 액세스 토큰 획득
 
         if token_response.status_code != status.HTTP_200_OK:
             return Response(
-                {"msg": f"{provider_info['name']} 서버로 부터 토큰을 받아오는데 실패하였습니다."},
+                {
+                    "msg": f"{provider_info['name']} 서버로 부터 토큰을 받아오는데 실패하였습니다."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         access_token = token_response.json().get("access_token")
-        profile_response = self.get_profile(access_token, provider_info)        # 사용자 프로필 정보 획득
+        profile_response = self.get_profile(
+            access_token, provider_info
+        )  # 사용자 프로필 정보 획득
 
         if profile_response.status_code != status.HTTP_200_OK:
             return Response(
-                {"msg": f"{provider_info['name']} 서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."},
+                {
+                    "msg": f"{provider_info['name']} 서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -205,10 +217,14 @@ class OAuthCallbackView(APIView):
 
     # 로그인 또는 회원가입 처리 메서드
     def login_process_user(self, request, profile_res_data, provider_info):
-        email, nick_name, provider_id = self.get_user_data(provider_info, profile_res_data)
+        email, nick_name, provider_id = self.get_user_data(
+            provider_info, profile_res_data
+        )
         # 기존 사용자 확인 또는 새 사용자 생성
         try:
-            provider = Provider.objects.get(provider=provider_info['name'].lower(), provider_id=provider_id)
+            provider = Provider.objects.get(
+                provider=provider_info["name"].lower(), provider_id=provider_id
+            )
             user = provider.user
         except Provider.DoesNotExist:
             try:
@@ -218,9 +234,9 @@ class OAuthCallbackView(APIView):
 
             Provider.objects.create(
                 user=user,
-                provider=provider_info['name'].lower(),
+                provider=provider_info["name"].lower(),
                 provider_id=provider_id,
-                email=email
+                email=email,
             )
 
         # JWT 토큰 생성 및 응답
@@ -228,7 +244,7 @@ class OAuthCallbackView(APIView):
         response_data = {
             "email": user.email,
             "nick_name": user.nick_name,
-            "access_token": str(refresh_token.access_token)
+            "access_token": str(refresh_token.access_token),
         }
 
         response = Response(response_data, status=status.HTTP_200_OK)
@@ -236,12 +252,13 @@ class OAuthCallbackView(APIView):
 
         return response
 
-
     # 소셜 플랫폼별 사용자 데이터 추출 메서드
     def get_user_data(self, provider_info, profile_res_data):
         if provider_info["name"] == "구글":
             email = profile_res_data.get(provider_info["email_field"])
-            nick_name = profile_res_data.get(provider_info["nickname_field"])  # 여기서는 'name'을 가져옵니다
+            nick_name = profile_res_data.get(
+                provider_info["nickname_field"]
+            )  # 여기서는 'name'을 가져옵니다
             provider_id = profile_res_data.get("id")
         elif provider_info["name"] == "네이버":
             profile_data = profile_res_data.get("response")
@@ -267,6 +284,7 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
+
 class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
         summary="구글 OAuth 콜백",
@@ -275,6 +293,7 @@ class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
+
 
 class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
@@ -295,22 +314,25 @@ class LogoutView(APIView):
         description="로그아웃 처리합니다. 로그아웃과 동시에 token값은 blacklist에 보내서 다시 사용 불가",
         tags=["Logout"],
     )
-
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             try:
-                refresh_token = serializer.validated_data['refresh_token']
+                refresh_token = serializer.validated_data["refresh_token"]
                 token = RefreshToken(refresh_token)
                 token.blacklist()
-                return Response({"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
+                return Response(
+                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+                )
             except Exception as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserProfileUpdateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]  # 사용자 토큰 조회 및 확인 자동 실행
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]  # 사용자 토큰 조회 및 확인 자동 실행
 
     @extend_schema(
         summary="사용자 프로필 수정",
@@ -324,23 +346,32 @@ class UserProfileUpdateView(APIView):
         serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True)
 
         if serializer.is_valid():
-            new_nick_name = serializer.validated_data.get("nick_name")  # 닉네임 유효성 검사
+            new_nick_name = serializer.validated_data.get(
+                "nick_name"
+            )  # 닉네임 유효성 검사
             if new_nick_name:
                 try:
-                    MinLengthValidator(2)(new_nick_name)  # 닉네임의 최소 길이 2글자로 설정
-                    MaxLengthValidator(16)(new_nick_name)  # 닉네임의 최대 길이 16글자로 설정
+                    MinLengthValidator(2)(
+                        new_nick_name
+                    )  # 닉네임의 최소 길이 2글자로 설정
+                    MaxLengthValidator(16)(
+                        new_nick_name
+                    )  # 닉네임의 최대 길이 16글자로 설정
                 except ValidationError:
-                    return Response({"error": "닉네임은 2글자 이상 16자 이하여야 합니다"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {"error": "닉네임은 2글자 이상 16자 이하여야 합니다"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             # 프로필 이미지 처리
-            profile_img = request.FILES.get('profile_img')
+            profile_img = request.FILES.get("profile_img")
             if profile_img:
                 # 도커 볼륨을 사용하여 이미지 저장
-                upload_dir = '/app/media/profile'  # 도커 볼륨 경로
+                upload_dir = "/app/media/profile"  # 도커 볼륨 경로
                 os.makedirs(upload_dir, exist_ok=True)
                 file_path = os.path.join(upload_dir, f"{user.id}_{profile_img.name}")
 
-                with open(file_path, 'wb+') as destination:
+                with open(file_path, "wb+") as destination:
                     for chunk in profile_img.chunks():
                         destination.write(chunk)
 
