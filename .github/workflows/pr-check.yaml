@@ -48,8 +48,8 @@ jobs:
 
       - name: Run code format check
         run: |
-          poetry run black --check .
-          poetry run isort --check-only .
+          poetry run black --check --diff .
+          poetry run isort --check-only --diff .
 
       - name: Run Django tests
         env:
