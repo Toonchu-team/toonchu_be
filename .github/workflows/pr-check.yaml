@@ -23,7 +23,7 @@ jobs:
           MYSQL_USER: ${{ secrets.MYSQL_USER }}
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
         ports:
-          - 3305:3306
+          - 3306:3306
         options: >-
           --health-cmd="mysqladmin ping"
           --health-interval=10s
@@ -53,7 +53,8 @@ jobs:
 
       - name: Run Django tests
         env:
-          DATABASE_URL: mysql:// ${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@${{ secrets.MYSQL_HOST }}:3305/${{ secrets.MYSQL_DATABASE }}
+          DATABASE_URL: mysql:// ${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@${{ secrets.MYSQL_HOST }}:3306/${{ secrets.MYSQL_DATABASE }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run:
           poetry run python manage.py test
           poetry run coverage run --source="." manage.py test
