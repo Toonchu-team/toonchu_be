@@ -145,21 +145,8 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
             "code": code,
         }
 
-        def login_process_user(self, request, profile_data, provider_info):
-            mock_data = {
-                "token": "xxxxxxxxxxxxxxxxxxx",
-                "user": {
-                    "id": 1234,
-                    "nick_name": "xxxxx",
-                    "email": "xxxxxxx@example.com",
-                    "profile_image": "https://xxxxxxxx.com/profile.jpg",
-                    "provider": provider_info.get("name", "unknown"),
-                }
-            }
 
-            return Response(mock_data, status=status.HTTP_200_OK)
-
-        # return requests.post(token_url, data=data)    목데이터 활용을 위해 잠시 주석 처리
+        return requests.post(token_url, data=data)
 
     def get_profile(self, access_token, provider_info):
         profile_url = provider_info["profile_url"]
