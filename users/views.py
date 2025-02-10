@@ -117,12 +117,12 @@ class OAuthCallbackView(generics.CreateAPIView):
         },
     )
     def create(self, request, *args, **kwargs):
-        logger.debug(f"Received data: {request.data}")  # request.GET 대신 request.data 로그 추가
-        serializer = self.get_serializer(data=request.data)  # request.GET → request.data 변경
-        if serializer.is_valid():
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        logger.debug(f"Received data: {request.data}")
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)  # 유효성 검사 실패 시 예외 발생
+
+        return self.perform_create(serializer)  # 사용자 정보를 반환하도록 변경
 
     def perform_create(self, serializer):
         code = serializer.validated_data['code']
@@ -131,7 +131,7 @@ class OAuthCallbackView(generics.CreateAPIView):
 
         if token_response.status_code != status.HTTP_200_OK:
             return Response(
-                {"msg": f"{provider_info['name']} 서버로 부터 토큰을 받아오는데 실패하였습니다."},
+                {"msg": f"{provider_info['name']} 서버로부터 토큰을 받아오는데 실패하였습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -140,14 +140,13 @@ class OAuthCallbackView(generics.CreateAPIView):
 
         if profile_response.status_code != status.HTTP_200_OK:
             return Response(
-                {"msg": f"{provider_info['name']} 서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."},
+                {"msg": f"{provider_info['name']} 서버로부터 프로필 데이터를 받아오는데 실패하였습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return self.login_process_user(self.request, profile_response.json(), provider_info)
-
-
-
+        # 사용자 정보 반환하도록 수정
+        user_data = self.login_process_user(self.request, profile_response.json(), provider_info)
+        return Response(user_data, status=status.HTTP_200_OK)
 
 
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
