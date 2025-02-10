@@ -10,6 +10,9 @@ on:
       - main
       - dev
 
+variables:
+  SECRET_KEY: $SECRET_KEY
+
 jobs:
   test:
     runs-on: ubuntu-20.04
@@ -50,6 +53,13 @@ jobs:
         run: |
           poetry run black --check --diff .
           poetry run isort --check-only --diff .
+
+      - name: Generate secrets.json file
+        run: |
+          echo "{\"SECRET_KEY\" : \"$SECRET_KEY\"}"
+
+        env:
+          SECRET_KEY: ${{ secrets. SECRET_KEY }}
 
       - name: Check migrations
         run: |
