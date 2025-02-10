@@ -1,5 +1,6 @@
 from django.db import models
 from multiselectfield import MultiSelectField
+
 from common.models import CommonModel
 
 

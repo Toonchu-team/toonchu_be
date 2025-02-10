@@ -1,16 +1,8 @@
 from django.urls import path
 
-
-from .views import (
-    KakaoCallbackView,
-    GoogleCallbackView,
-    NaverCallbackView,
-    NaverLoginView,
-    GoogleLoginView,
-    KakaoLoginView,
-    LogoutView,
-    UserProfileUpdateView,
-)
+from .views import (GoogleCallbackView, GoogleLoginView, KakaoCallbackView,
+                    KakaoLoginView, LogoutView, NaverCallbackView,
+                    NaverLoginView, UserProfileUpdateView)
 
 urlpatterns = [
     path("oauth/kakao/callback/", KakaoCallbackView.as_view(), name="kakao-callback"),

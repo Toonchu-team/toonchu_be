@@ -1,30 +1,23 @@
-from django.contrib.auth import get_user_model
-from django.core.validators import MinLengthValidator, MaxLengthValidator
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status, permissions
-from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.exceptions import ValidationError
-from drf_spectacular.utils import (
-    extend_schema,
-    OpenApiExample,
-    OpenApiTypes,
-    OpenApiResponse,
-)
-
-from .models import Provider, CustomUser
-from .oauth_mixins import (
-    KaKaoProviderInfoMixin,
-    GoogleProviderInfoMixin,
-    NaverProviderInfoMixin,
-)
-from .serializers import LogoutSerializer, UserProfileUpdateSerializer
-
-from datetime import timezone
-from abc import abstractmethod
-import requests
 import os
+from abc import abstractmethod
+from datetime import timezone
+
+import requests
+from django.contrib.auth import get_user_model
+from django.core.validators import MaxLengthValidator, MinLengthValidator
+from drf_spectacular.utils import (OpenApiExample, OpenApiResponse,
+                                   OpenApiTypes, extend_schema)
+from rest_framework import permissions, status
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from .models import CustomUser, Provider
+from .oauth_mixins import (GoogleProviderInfoMixin, KaKaoProviderInfoMixin,
+                           NaverProviderInfoMixin)
+from .serializers import LogoutSerializer, UserProfileUpdateSerializer
 
 User = get_user_model()
 

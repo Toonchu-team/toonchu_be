@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+
 from dotenv import dotenv_values
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
