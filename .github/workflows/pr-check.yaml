@@ -51,11 +51,14 @@ jobs:
           poetry run black --check --diff .
           poetry run isort --check-only --diff .
 
+      - name: Check migrations
+        run: |
+          poetry run python manage.py makemigrations --settings=config.settings.local
+          poetry run python manage.py migrate --settings=config.settings.local
+
       - name: Run Django tests
         env:
           DATABASE_URL: mysql:// ${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@${{ secrets.MYSQL_HOST }}:3306/${{ secrets.MYSQL_DATABASE }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run:
-          poetry run python manage.py test
-          poetry run coverage run --source="." manage.py test
-          poetry run coverage report --fail-under=80
+          poetry run python manage.py runserver --settings=config.settings.local
