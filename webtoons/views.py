@@ -1,4 +1,9 @@
+import json
+from copy import deepcopy
+
 from rest_framework.decorators import api_view
+from rest_framework.generics import CreateAPIView
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -11,8 +16,10 @@ from .serializers import WebtoonsSerializer, WebtoonTagSerializer, TagSerializer
 import requests
 import os
 
-class WebtoonsView(APIView):
+class WebtoonView(CreateAPIView):
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser]
+    serializer_class = WebtoonsSerializer
 
     @extend_schema(
         summary='웹툰 작품 등록',
@@ -25,10 +32,12 @@ class WebtoonsView(APIView):
         }
     )
 
-    def post(self, request):
-        serializer = WebtoonsSerializer(data=request.data)
-        if serializer.is_valid():
-            webtoon = serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def create(self, request, *args, **kwargs):
+        data = {key: value for key, value in request.data.items()}
+        data['tags'] = json.loads(request.data['tags'])
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+

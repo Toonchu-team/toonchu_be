@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
-from .models import Webtoons, Tags, WebtoonTags
+from webtoons.models import Webtoon, Tag, WebtoonTag
 
 @extend_schema_serializer(
 examples=[
@@ -14,6 +14,7 @@ examples=[
                 'description':'감자 같은 내 코드 and 프론트의 일상을 담은 이야기',
                 'url': "https://webtoon-platform.com/webtoon/1",
                 'platform':'네이버',
+                'publication_day':'2025-02-10',
                 'serial_day': '월요일,목요일',
                 'serialization_cycle': '1주',
             },
@@ -31,35 +32,55 @@ examples=[
     ]
 )
 
-class WebtoonsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Webtoons
-        fields = ['title','author','description','thumbnail','webtoon_url','platform', 'serial_day','serialization_cycle','created_at','updated_at']
-
-    def create(self, validated_data):
-        tags_name = self.initial_data.get('Tags', [])
-
-        webtoon = Webtoons.objects.create(**validated_data)
-
-        for tag_name in tags_name:
-            tag, _ = Tags.objects.get_or_create(name=tag_name)
-            WebtoonTags.objects.create(webtoon=webtoon, tag=tag)
-        webtoon.save()
-        return webtoon
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        return representation
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Tags
+        model = Tag
         fields = '__all__'
+
 
 class WebtoonTagSerializer(serializers.ModelSerializer):
     class Meta:
-        model = WebtoonTags
+        model = WebtoonTag
         fields = '__all__'
+
+
+class WebtoonsSerializer(serializers.ModelSerializer):
+    tags = TagSerializer(many=True, required=False)
+
+    class Meta:
+        model = Webtoon
+        fields = ['title','author','description','thumbnail','webtoon_url','publication_day', 'platform', 'serial_day','serialization_cycle','created_at','updated_at','tags']
+
+    def create(self, validated_data):
+        tags = validated_data.pop('tags', [])
+        webtoon = Webtoon.objects.create(**validated_data)
+
+        if tags:
+            tag_names = [tag['tag_name'] for tag in tags]
+            existing_tags = [{'tag_name': tag.tags_name, 'category': tag.category} for tag in Tag.objects.filter(tag_name__in=tag_names)]
+
+            new_tags = [tag for tag in tags if tag not in existing_tags]
+
+            Tag.objects.bulk_create(
+                [Tag(tag_name=tag['tag_name'], category=tag['category']) for tag in new_tags]
+            )  # 새 태그 생성
+
+            # 최신 태그 리스트 가져오기 (새로 생성된 태그 포함)
+            all_tags = [tag for tag in Tag.objects.filter(tag_name__in=tag_names)]
+
+            # WebtoonTags 객체 리스트 생성 후 bulk_create
+            WebtoonTag.objects.bulk_create(
+                [WebtoonTag(webtoon=webtoon, tag=tag) for tag in all_tags]
+            )
+
+        return webtoon
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        tags = [webtoon_tag.tag for webtoon_tag in instance.webtoon_tags.all()]
+        data['tags'] = TagSerializer(tags, many=True).data
+        return data
 
 class ErrorResponseSerializer(serializers.Serializer):
     message = serializers.CharField()

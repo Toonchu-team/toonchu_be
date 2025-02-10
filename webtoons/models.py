@@ -1,9 +1,9 @@
 from django.db import models
-
 from multiselectfield import MultiSelectField
 from common.models import CommonModel
 
-class Webtoons(CommonModel):
+
+class Webtoon(CommonModel):
     PLATFORM_CHOICES = [
         ('naver', '네이버'),
         ('kakaopage', '카카오페이지'),
@@ -27,7 +27,6 @@ class Webtoons(CommonModel):
         ('sat','토요일'),
         ('sun','일요일'),
     ]
-    webtoons_id = models.AutoField(primary_key=True, null=False)
     title = models.CharField(max_length=100, null=False, blank=False)
     author = models.CharField(max_length=50, null=False, blank=False)
     description = models.TextField()
@@ -43,7 +42,7 @@ class Webtoons(CommonModel):
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
 
-class Tags(models.Model):
+class Tag(models.Model):
     CATEGORY_CHOICES = [
         ("genre","장르"),
         ("matter","소재"),
@@ -56,11 +55,9 @@ class Tags(models.Model):
         ("top/bottom","00공수"),
         ("etc","기타"),
     ]
-    tags_id = models.IntegerField(primary_key=True)
-    tags_name = models.CharField(max_length=20, unique=True)
+    tag_name = models.CharField(max_length=20, unique=True)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
 
-class WebtoonTags(models.Model):
-    webtoontags_id = models.IntegerField(primary_key=True)
-    webtoons_id = models.ForeignKey(Webtoons, on_delete=models.CASCADE)
-    tags_id = models.ForeignKey(Tags, on_delete=models.CASCADE)
+class WebtoonTag(models.Model):
+    webtoon = models.ForeignKey(Webtoon, on_delete=models.CASCADE, related_name='webtoon_tags')
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
