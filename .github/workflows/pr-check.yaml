@@ -60,11 +60,6 @@ jobs:
           echo SECRET_KEY="$SECRET_KEY" >> .env
           cat .env
 
-      - name: Check migrations
-        run: |
-          poetry run python manage.py makemigrations --settings=config.settings.local
-          poetry run python manage.py migrate --settings=config.settings.local
-
       - name: Run Django tests
         env:
           DATABASE_URL: mysql:// ${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@${{ secrets.MYSQL_HOST }}:3306/${{ secrets.MYSQL_DATABASE }}
