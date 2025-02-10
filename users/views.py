@@ -94,102 +94,33 @@ class OAuthCallbackView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = SocialLoginSerializer
 
-    @abstractmethod
-    def get_provider_info(self):
-        pass
-
-    @extend_schema(
-        summary="OAuth 콜백 처리",
-        description="소셜 로그인 인증 코드를 받아 사용자 정보를 조회하고 로그인 또는 회원가입을 처리합니다.",
-        request=SocialLoginSerializer,
-        parameters=[
-            {
-                'name': 'code',
-                'in': 'query',
-                'description': 'OAuth 인증 코드',
-                'required': True,
-                'type': 'string',
-                'example': '0w57FBY27HJ6xCUZAcG7Z-QlFBUnT-qKlMLD2R7lmDJM06Bsvoj4BQAAAAQKPCJSAAABlM-9ooKGtS2__sNdBQ'
-            }
-        ],
-        responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-        },
-    )
     def create(self, request, *args, **kwargs):
-        logger.debug(f"Received data: {request.data}")
+        # 🔥 1. 들어온 요청 데이터 확인
+        print(f"📩 request.data: {request.data}")
+        logger.debug(f"📩 request.data: {request.data}")
 
+        # 🔥 2. 원본 요청 바디 확인 (혹시 JSON 파싱이 안 되는지 체크)
+        try:
+            raw_body = request.body.decode('utf-8')  # 바이너리 데이터를 문자열로 변환
+            json_body = json.loads(raw_body)  # JSON 형식이면 파싱
+            print(f"📦 Raw JSON Payload: {json_body}")
+            logger.debug(f"📦 Raw JSON Payload: {json_body}")
+        except json.JSONDecodeError:
+            print("⚠️ 요청 바디가 JSON이 아닙니다.")
+            logger.debug("⚠️ 요청 바디가 JSON이 아닙니다.")
+
+        # 🔥 3. serializer 유효성 검사 진행
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)  # 유효성 검사 실패 시 예외 발생
-
-        code = serializer.validated_data['code']
-        logger.debug(f"인가코드: {code}")
-
-        return self.perform_create(serializer)  # 사용자 정보를 반환하도록 변경
-
-    def perform_create(self, serializer):
-        code = serializer.validated_data['code']
-        provider_info = self.get_provider_info()
-
-        # 1. 엑세스 토큰 요청
-        token_response = self.get_token(code, provider_info)
-        if token_response.status_code != status.HTTP_200_OK:
-            logger.error(f"{provider_info['name']} OAuth 토큰 요청 실패: {token_response.text}")
-            return Response(
-                {"msg": f"{provider_info['name']} 서버에서 토큰을 받아오지 못했습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        access_token = token_response.json().get("access_token")
-        if not access_token:
-            logger.error(f"{provider_info['name']} 엑세스 토큰이 응답에 없음: {token_response.json()}")
-            return Response(
-                {"msg": "엑세스 토큰을 찾을 수 없습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # 2. 사용자 프로필 요청
-        profile_response = self.get_profile(access_token, provider_info)
-        if profile_response.status_code != status.HTTP_200_OK:
-            logger.error(f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}")
-            return Response(
-                {"msg": f"{provider_info['name']} 서버에서 프로필 데이터를 받아오지 못했습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        user_data = profile_response.json()
-
-        # 3. 사용자 로그인 또는 회원가입 처리
-        return self.login_process_user(request, user_data, provider_info)
-
-    def login_process_user(self, request, profile_data, provider_info):
-        """
-        실제 사용자 데이터베이스 조회 또는 생성 후, 인증된 사용자 정보를 반환합니다.
-        """
-        user, created = User.objects.get_or_create(
-            email=profile_data.get("email"),
-            defaults={
-                "nick_name": profile_data.get("nickname") or "Unnamed User",
-                "profile_img": profile_data.get("profile_image"),
-                "social_provider": provider_info["name"].lower(),
-            },
-        )
-
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "token": str(refresh.access_token),
-                "user": {
-                    "id": user.id,
-                    "nick_name": user.nick_name,
-                    "email": user.email,
-                    "profile_image": user.profile_img,
-                    "provider": provider_info["name"].lower(),
-                },
-            },
-            status=status.HTTP_200_OK,
-        )
+        if serializer.is_valid():
+            # 🔥 4. 인가 코드가 정상적으로 들어왔는지 확인
+            code = serializer.validated_data.get('code')
+            print(f"💡 받은 인가 코드: {code}")
+            logger.debug(f"💡 받은 인가 코드: {code}")
+            return self.perform_create(serializer)
+        else:
+            print(f"❌ Serializer validation failed: {serializer.errors}")
+            logger.debug(f"❌ Serializer validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
