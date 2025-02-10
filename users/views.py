@@ -156,8 +156,27 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
         description="카카오 소셜 로그인 콜백을 처리합니다.",
         tags=["Kakao Social"],
     )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+        }
+
+        return requests.post(token_url, data=data)
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
+
 
 class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
@@ -165,8 +184,27 @@ class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
         description="구글 소셜 로그인 콜백을 처리합니다.",
         tags=["Google Social"],
     )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+        }
+
+        return requests.post(token_url, data=data)
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
+
 
 class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
@@ -174,8 +212,28 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
         description="네이버 소셜 로그인 콜백을 처리합니다.",
         tags=["Naver Social"],
     )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+            "state": "YOUR_STATE_VALUE",  # 필요한 경우 state 값 추가
+        }
+
+        return requests.post(token_url, data=data)
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
+
 
 class LogoutView(generics.CreateAPIView):
     serializer_class = LogoutSerializer
@@ -199,17 +257,6 @@ class LogoutView(generics.CreateAPIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
-from django.http import HttpResponseNotAllowed
-import os
-from django.utils import timezone
-
-from .serializers import UserProfileSerializer
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -227,7 +274,11 @@ class UserProfileView(generics.GenericAPIView):
     )
     def get(self, request, *args, **kwargs):  # GET 메서드 처리
         serializer = self.get_serializer(self.get_object())
-        return Response(serializer.data)
+        data = serializer.data
+        return Response(
+            {"message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다", "user": data},
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         summary="사용자 프로필 수정",
@@ -237,24 +288,28 @@ class UserProfileView(generics.GenericAPIView):
         tags=["User Profile"],
     )
     def post(self, request, *args, **kwargs):  # POST 메서드만 처리
-        if request.method not in ['POST']:
+        if request.method not in ["POST"]:
             return HttpResponseNotAllowed(["POST"])
 
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        user_data = serializer.data
+        return Response(
+            {"message": "회원 정보가 수정되었습니다.", "user": user_data},
+            status=status.HTTP_200_OK,
+        )
 
     def perform_update(self, serializer):
         user = self.request.user
-        profile_img = self.request.FILES.get('profile_img')
+        profile_img = self.request.FILES.get("profile_img")
         if profile_img:
-            upload_dir = '/app/media/profile'
+            upload_dir = "/app/media/profile"
             os.makedirs(upload_dir, exist_ok=True)
             file_path = os.path.join(upload_dir, f"{user.id}_{profile_img.name}")
 
-            with open(file_path, 'wb+') as destination:
+            with open(file_path, "wb+") as destination:
                 for chunk in profile_img.chunks():
                     destination.write(chunk)
 
