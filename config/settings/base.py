@@ -218,8 +218,6 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
-<<<<<<< HEAD
-# GOOGLE_OAUTH2_SCOPE = ['email', 'profile']
 
 LOGGING = {
     'version': 1,
@@ -239,8 +237,6 @@ LOGGING = {
         },
     },
 }
-=======
 
 GOOGLE_OAUTH2_SCOPE = ['email', 'profile']  # 새로운 설정 추가
 
->>>>>>> 966e9f6b741aea6666e822501a7701a0ff394772
