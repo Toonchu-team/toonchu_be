@@ -6,9 +6,9 @@ from django.utils import timezone
 from rest_framework import generics, status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
 from rest_framework.response import Response
 from rest_framework import request
+from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
 
 from .models import CustomUser
 from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
@@ -19,6 +19,7 @@ from abc import abstractmethod
 import requests
 import os
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -96,78 +97,106 @@ class OAuthCallbackView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = SocialLoginSerializer
 
-    @abstractmethod
-    def get_provider_info(self):
-        pass
-
-    @extend_schema(
-        summary="OAuth 콜백 처리",
-        description="소셜 로그인 인증 코드를 받아 사용자 정보를 조회하고 로그인 또는 회원가입을 처리합니다.",
-        request=SocialLoginSerializer,
-        parameters=[
-            {
-                'name': 'code',
-                'in': 'query',
-                'description': 'OAuth 인증 코드',
-                'required': True,
-                'type': 'string',
-                'example': '0w57FBY27HJ6xCUZAcG7Z-QlFBUnT-qKlMLD2R7lmDJM06Bsvoj4BQAAAAQKPCJSAAABlM-9ooKGtS2__sNdBQ'
-            }
-        ],
-        responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-        },
-    )
     def create(self, request, *args, **kwargs):
-        logger.debug(f"Received data: {request.data}")
+        # 🔥 1. 들어온 요청 데이터 확인
+        print(f"📩 request.data: {request.data}")
+        logger.debug(f"📩 request.data: {request.data}")
 
+        # 🔥 2. 원본 요청 바디 확인 (혹시 JSON 파싱이 안 되는지 체크)
+        try:
+            raw_body = request.body.decode('utf-8')  # 바이너리 데이터를 문자열로 변환
+            json_body = json.loads(raw_body)  # JSON 형식이면 파싱
+            print(f"Raw JSON Payload: {json_body}")
+            logger.debug(f"Raw JSON Payload: {json_body}")
+        except json.JSONDecodeError:
+            print("요청 바디가 JSON이 아닙니다.")
+            logger.debug("요청 바디가 JSON이 아닙니다.")
+
+        # 🔥 3. serializer 유효성 검사 진행
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)  # 유효성 검사 실패 시 예외 발생
+        if serializer.is_valid():
+            # 🔥 4. 인가 코드가 정상적으로 들어왔는지 확인
+            code = serializer.validated_data.get('code')
+            print(f"💡 받은 인가 코드: {code}")
+            logger.debug(f"💡 받은 인가 코드: {code}")
 
-        code = serializer.validated_data['code']
-        logger.debug(f"인가코드: {code}")
+            # ✅ 5. 인가 코드로 access_token 요청
+            provider_info = self.get_provider_info()
+            token_response = self.get_token(code, provider_info)
 
-        return self.perform_create(serializer)  # 사용자 정보를 반환하도록 변경
+            if token_response.status_code != status.HTTP_200_OK:
+                logger.error(f"{provider_info['name']} 토큰 요청 실패: {token_response.text}")
+                return Response(
+                    {"msg": f"{provider_info['name']} 서버에서 토큰을 가져올 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-    def perform_create(self, serializer):
-        code = serializer.validated_data['code']
-        provider_info = self.get_provider_info()
+            access_token = token_response.json().get("access_token")
+            if not access_token:
+                logger.error(f"{provider_info['name']} 응답에서 access_token 없음: {token_response.json()}")
+                return Response({"msg": "엑세스 토큰을 찾을 수 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. 엑세스 토큰 요청
-        token_response = self.get_token(code, provider_info)
-        if token_response.status_code != status.HTTP_200_OK:
-            logger.error(f"{provider_info['name']} OAuth 토큰 요청 실패: {token_response.text}")
-            return Response(
-                {"msg": f"{provider_info['name']} 서버에서 토큰을 받아오지 못했습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            logger.debug(f"🔑 발급된 access_token: {access_token}")
 
-        access_token = token_response.json().get("access_token")
-        if not access_token:
-            logger.error(f"{provider_info['name']} 엑세스 토큰이 응답에 없음: {token_response.json()}")
-            return Response(
-                {"msg": "엑세스 토큰을 찾을 수 없습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            # ✅ 6. access_token을 사용하여 사용자 프로필 정보 요청
+            profile_response = self.get_profile(access_token, provider_info)
+            if profile_response.status_code != status.HTTP_200_OK:
+                logger.error(f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}")
+                return Response(
+                    {"msg": f"{provider_info['name']} 서버에서 사용자 정보를 가져올 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # 2. 사용자 프로필 요청
-        profile_response = self.get_profile(access_token, provider_info)
-        if profile_response.status_code != status.HTTP_200_OK:
-            logger.error(f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}")
-            return Response(
-                {"msg": f"{provider_info['name']} 서버에서 프로필 데이터를 받아오지 못했습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            user_data = profile_response.json()
+            logger.debug(f"사용자 정보: {user_data}")
 
-        user_data = profile_response.json()
+            # 7. 로그인 또는 회원가입 처리
+            return self.login_process_user(request, user_data, provider_info)
+        else:
+            print(f"Serializer validation failed: {serializer.errors}")
+            logger.debug(f"Serializer validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3. 사용자 로그인 또는 회원가입 처리
-        return self.login_process_user(self.request, user_data, provider_info)
+    def get_provider_info(self):
+        """
+        각 OAuth 공급자에 대한 정보를 제공해야 합니다.
+        하위 클래스에서 반드시 구현해야 합니다.
+        """
+        raise NotImplementedError
+
+    def get_token(self, code, provider_info):
+        """
+        인가 코드를 사용해 access_token을 요청하는 함수
+        """
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        redirect_uri = provider_info["redirect_uri"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+        }
+
+        response = requests.post(token_url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        return response
+
+    def get_profile(self, access_token, provider_info):
+        """
+        access_token을 사용하여 사용자 프로필을 요청하는 함수
+        """
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        response = requests.get(profile_url, headers=headers)
+        return response
 
     def login_process_user(self, request, profile_data, provider_info):
         """
-        실제 사용자 데이터베이스 조회 또는 생성 후, 인증된 사용자 정보를 반환합니다.
+        로그인 또는 회원가입 처리
         """
         email = profile_data.get("email")
         if not email:
@@ -197,6 +226,7 @@ class OAuthCallbackView(generics.CreateAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
 
 
 
