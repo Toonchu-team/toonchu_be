@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseNotAllowed
 from django.utils import timezone
@@ -161,16 +163,20 @@ class OAuthCallbackView(generics.CreateAPIView):
         user_data = profile_response.json()
 
         # 3. 사용자 로그인 또는 회원가입 처리
-        return self.login_process_user(request, user_data, provider_info)
+        return self.login_process_user(self.request, user_data, provider_info)
 
     def login_process_user(self, request, profile_data, provider_info):
         """
         실제 사용자 데이터베이스 조회 또는 생성 후, 인증된 사용자 정보를 반환합니다.
         """
+        email = profile_data.get("email")
+        if not email:
+            return Response({"msg": "이메일 정보가 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
+
         user, created = User.objects.get_or_create(
-            email=profile_data.get("email"),
+            email=email,
             defaults={
-                "nick_name": profile_data.get("nickname") or "Unnamed User",
+                "nick_name": profile_data.get("nickname") or f"User_{uuid.uuid4().hex[:6]}",  # 랜덤 닉네임 생성
                 "profile_img": profile_data.get("profile_image"),
                 "social_provider": provider_info["name"].lower(),
             },
@@ -179,7 +185,8 @@ class OAuthCallbackView(generics.CreateAPIView):
         refresh = RefreshToken.for_user(user)
         return Response(
             {
-                "token": str(refresh.access_token),
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh),  # 클라이언트가 refresh token을 저장할 수 있도록 추가
                 "user": {
                     "id": user.id,
                     "nick_name": user.nick_name,
