@@ -1,10 +1,9 @@
 from django.db import models
-
-from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from common.models import CommonModel
 
-class Webtoons(CommonModel):
+
+class Webtoon(CommonModel):
     PLATFORM_CHOICES = [
         ('naver', '네이버'),
         ('kakaopage', '카카오페이지'),
@@ -12,6 +11,7 @@ class Webtoons(CommonModel):
         ('others', '기타'),
     ]
     CYCLE_CHOICES = [
+        ('1weeks', '1주'),
         ('2weeks', '2주'),
         ('10days', '10일'),
         ('20days', '20일'),
@@ -27,11 +27,10 @@ class Webtoons(CommonModel):
         ('sat','토요일'),
         ('sun','일요일'),
     ]
-    webtoons_id = models.IntegerField(primary_key=True, null=False)
     title = models.CharField(max_length=100, null=False, blank=False)
     author = models.CharField(max_length=50, null=False, blank=False)
     description = models.TextField()
-    thumbnail = models.FileField(upload_to='webtoons/thumbnails', null=False, blank=False)
+    thumbnail = models.ImageField(upload_to='webtoons/thumbnails', null=False, blank=False)
     age_rating = models.CharField(max_length=10)
     publication_day = models.DateField(null=False, blank=False)
     is_completed = models.BooleanField(default=False)
@@ -56,11 +55,9 @@ class Tag(models.Model):
         ("top/bottom","00공수"),
         ("etc","기타"),
     ]
-    tags_id = models.IntegerField(primary_key=True)
-    tags_name = models.CharField(max_length=20, unique=True)
+    tag_name = models.CharField(max_length=20, unique=True)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
 
 class WebtoonTag(models.Model):
-    webtoontags_id = models.IntegerField(primary_key=True)
-    webtoons_id = models.ForeignKey(Webtoons, on_delete=models.CASCADE)
-    tags_id = models.ForeignKey(Tag, on_delete=models.CASCADE)
+    webtoon = models.ForeignKey(Webtoon, on_delete=models.CASCADE, related_name='webtoon_tags')
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
