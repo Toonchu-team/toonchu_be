@@ -6,6 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
 from rest_framework.response import Response
+from rest_framework import request
 
 from .models import CustomUser
 from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
@@ -93,60 +94,33 @@ class OAuthCallbackView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = SocialLoginSerializer
 
-    @abstractmethod
-    def get_provider_info(self):
-        pass
-
-    @extend_schema(
-        summary="OAuth 콜백 처리",
-        description="소셜 로그인 인증 코드를 받아 사용자 정보를 조회하고 로그인 또는 회원가입을 처리합니다.",
-        request=SocialLoginSerializer,
-        parameters=[
-            {
-                'name': 'code',
-                'in': 'query',
-                'description': 'OAuth 인증 코드',
-                'required': True,
-                'type': 'string',
-                'example': '0w57FBY27HJ6xCUZAcG7Z-QlFBUnT-qKlMLD2R7lmDJM06Bsvoj4BQAAAAQKPCJSAAABlM-9ooKGtS2__sNdBQ'
-            }
-        ],
-        responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-        },
-    )
     def create(self, request, *args, **kwargs):
-        logger.debug(f"Received data: {request.data}")  # request.GET 대신 request.data 로그 추가
-        serializer = self.get_serializer(data=request.data)  # request.GET → request.data 변경
+        # 🔥 1. 들어온 요청 데이터 확인
+        print(f"📩 request.data: {request.data}")
+        logger.debug(f"📩 request.data: {request.data}")
+
+        # 🔥 2. 원본 요청 바디 확인 (혹시 JSON 파싱이 안 되는지 체크)
+        try:
+            raw_body = request.body.decode('utf-8')  # 바이너리 데이터를 문자열로 변환
+            json_body = json.loads(raw_body)  # JSON 형식이면 파싱
+            print(f"📦 Raw JSON Payload: {json_body}")
+            logger.debug(f"📦 Raw JSON Payload: {json_body}")
+        except json.JSONDecodeError:
+            print("⚠️ 요청 바디가 JSON이 아닙니다.")
+            logger.debug("⚠️ 요청 바디가 JSON이 아닙니다.")
+
+        # 🔥 3. serializer 유효성 검사 진행
+        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            # 🔥 4. 인가 코드가 정상적으로 들어왔는지 확인
+            code = serializer.validated_data.get('code')
+            print(f"💡 받은 인가 코드: {code}")
+            logger.debug(f"💡 받은 인가 코드: {code}")
+            return self.perform_create(serializer)
         else:
+            print(f"❌ Serializer validation failed: {serializer.errors}")
+            logger.debug(f"❌ Serializer validation failed: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def perform_create(self, serializer):
-        code = serializer.validated_data['code']
-        provider_info = self.get_provider_info()
-        token_response = self.get_token(code, provider_info)
-
-        if token_response.status_code != status.HTTP_200_OK:
-            return Response(
-                {"msg": f"{provider_info['name']} 서버로 부터 토큰을 받아오는데 실패하였습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        access_token = token_response.json().get("access_token")
-        profile_response = self.get_profile(access_token, provider_info)
-
-        if profile_response.status_code != status.HTTP_200_OK:
-            return Response(
-                {"msg": f"{provider_info['name']} 서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        return self.login_process_user(self.request, profile_response.json(), provider_info)
-
-
 
 
 
@@ -156,8 +130,41 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
         description="카카오 소셜 로그인 콜백을 처리합니다.",
         tags=["Kakao Social"],
     )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+        }
+
+        def login_process_user(self, request, profile_data, provider_info):
+            mock_data = {
+                "token": "xxxxxxxxxxxxxxxxxxx",
+                "user": {
+                    "id": 1234,
+                    "nick_name": "xxxxx",
+                    "email": "xxxxxxx@example.com",
+                    "profile_image": "https://xxxxxxxx.com/profile.jpg",
+                    "provider": provider_info.get("name", "unknown"),
+                }
+            }
+
+            return Response(mock_data, status=status.HTTP_200_OK)
+
+        # return requests.post(token_url, data=data)    목데이터 활용을 위해 잠시 주석 처리
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
+
 
 class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
@@ -165,8 +172,27 @@ class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
         description="구글 소셜 로그인 콜백을 처리합니다.",
         tags=["Google Social"],
     )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+        }
+
+        return requests.post(token_url, data=data)
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
+
 
 class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
@@ -174,8 +200,28 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
         description="네이버 소셜 로그인 콜백을 처리합니다.",
         tags=["Naver Social"],
     )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+            "state": "YOUR_STATE_VALUE",  # 필요한 경우 state 값 추가
+        }
+
+        return requests.post(token_url, data=data)
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
+
 
 class LogoutView(generics.CreateAPIView):
     serializer_class = LogoutSerializer
@@ -199,17 +245,6 @@ class LogoutView(generics.CreateAPIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
-from django.http import HttpResponseNotAllowed
-import os
-from django.utils import timezone
-
-from .serializers import UserProfileSerializer
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -227,7 +262,11 @@ class UserProfileView(generics.GenericAPIView):
     )
     def get(self, request, *args, **kwargs):  # GET 메서드 처리
         serializer = self.get_serializer(self.get_object())
-        return Response(serializer.data)
+        data = serializer.data
+        return Response(
+            {"message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다", "user": data},
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         summary="사용자 프로필 수정",
@@ -237,24 +276,28 @@ class UserProfileView(generics.GenericAPIView):
         tags=["User Profile"],
     )
     def post(self, request, *args, **kwargs):  # POST 메서드만 처리
-        if request.method not in ['POST']:
+        if request.method not in ["POST"]:
             return HttpResponseNotAllowed(["POST"])
 
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        user_data = serializer.data
+        return Response(
+            {"message": "회원 정보가 수정되었습니다.", "user": user_data},
+            status=status.HTTP_200_OK,
+        )
 
     def perform_update(self, serializer):
         user = self.request.user
-        profile_img = self.request.FILES.get('profile_img')
+        profile_img = self.request.FILES.get("profile_img")
         if profile_img:
-            upload_dir = '/app/media/profile'
+            upload_dir = "/app/media/profile"
             os.makedirs(upload_dir, exist_ok=True)
             file_path = os.path.join(upload_dir, f"{user.id}_{profile_img.name}")
 
-            with open(file_path, 'wb+') as destination:
+            with open(file_path, "wb+") as destination:
                 for chunk in profile_img.chunks():
                     destination.write(chunk)
 
