@@ -211,6 +211,7 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
         return requests.get(profile_url, headers=headers)
 
 
+
 class LogoutView(generics.CreateAPIView):
     serializer_class = LogoutSerializer
 
