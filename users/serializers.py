@@ -11,9 +11,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'nick_name', 'profile_img', 'provider', 'is_adult', 'is_admin', 'created_at', 'updated_at'
+            'id', 'email', 'nick_name', 'profile_img', 'provider', 'is_adult', 'is_created', 'is_updated'
         ]
-        read_only_fields = ["id", "email", "provider", "is_adult", "is_admin", "created_at"]
+        read_only_fields = ["id", "email", "provider", "is_adult", "is_created"]
 
 
     def validate_nick_name(self, value):
