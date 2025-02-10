@@ -87,8 +87,6 @@ class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
-
-
 class OAuthCallbackView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = SocialLoginSerializer
@@ -117,12 +115,12 @@ class OAuthCallbackView(generics.CreateAPIView):
         },
     )
     def create(self, request, *args, **kwargs):
-        logger.debug(f"Received data: {request.data}")
-
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)  # 유효성 검사 실패 시 예외 발생
-
-        return self.perform_create(serializer)  # 사용자 정보를 반환하도록 변경
+        logger.debug(f"Received data: {request.data}")  # request.GET 대신 request.data 로그 추가
+        serializer = self.get_serializer(data=request.data)  # request.GET → request.data 변경
+        if serializer.is_valid():
+            return self.perform_create(serializer)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_create(self, serializer):
         code = serializer.validated_data['code']
@@ -131,7 +129,7 @@ class OAuthCallbackView(generics.CreateAPIView):
 
         if token_response.status_code != status.HTTP_200_OK:
             return Response(
-                {"msg": f"{provider_info['name']} 서버로부터 토큰을 받아오는데 실패하였습니다."},
+                {"msg": f"{provider_info['name']} 서버로 부터 토큰을 받아오는데 실패하였습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -140,13 +138,87 @@ class OAuthCallbackView(generics.CreateAPIView):
 
         if profile_response.status_code != status.HTTP_200_OK:
             return Response(
-                {"msg": f"{provider_info['name']} 서버로부터 프로필 데이터를 받아오는데 실패하였습니다."},
+                {"msg": f"{provider_info['name']} 서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 사용자 정보 반환하도록 수정
-        user_data = self.login_process_user(self.request, profile_response.json(), provider_info)
-        return Response(user_data, status=status.HTTP_200_OK)
+        return self.login_process_user(self.request, profile_response.json(), provider_info)
+
+    def login_process_user(self, request, profile_data, provider_info):
+        # 목데이터
+        mock_data = {
+            "token": "xxxxxxxxxxxxxxxxxxx",
+            "user": {
+                "id": 1234,  # 실제로는 데이터베이스에서 가져오거나 생성한 사용자의 ID를 넣어야 합니다.
+                "nick_name": "TestUser",  # 실제로는 사용자 닉네임을 넣어야 합니다.
+                "email": "test@example.com",  # 실제로는 사용자 이메일을 넣어야 합니다.
+                "profile_image": "https://xxxxxxxx.com/profile.jpg",  # 실제로는 사용자 프로필 이미지 URL을 넣어야 합니다.
+                "provider": "kakao",
+            }
+        }
+
+        return Response(mock_data, status=status.HTTP_200_OK)
+
+
+# class OAuthCallbackView(generics.CreateAPIView):
+#     permission_classes = [AllowAny]
+#     serializer_class = SocialLoginSerializer
+#
+#     @abstractmethod
+#     def get_provider_info(self):
+#         pass
+#
+#     @extend_schema(
+#         summary="OAuth 콜백 처리",
+#         description="소셜 로그인 인증 코드를 받아 사용자 정보를 조회하고 로그인 또는 회원가입을 처리합니다.",
+#         request=SocialLoginSerializer,
+#         parameters=[
+#             {
+#                 'name': 'code',
+#                 'in': 'query',
+#                 'description': 'OAuth 인증 코드',
+#                 'required': True,
+#                 'type': 'string',
+#                 'example': '0w57FBY27HJ6xCUZAcG7Z-QlFBUnT-qKlMLD2R7lmDJM06Bsvoj4BQAAAAQKPCJSAAABlM-9ooKGtS2__sNdBQ'
+#             }
+#         ],
+#         responses={
+#             200: OpenApiTypes.OBJECT,
+#             400: OpenApiTypes.OBJECT,
+#         },
+#     )
+#     def create(self, request, *args, **kwargs):
+#         logger.debug(f"Received data: {request.data}")
+#
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)  # 유효성 검사 실패 시 예외 발생
+#
+#         return self.perform_create(serializer)  # 사용자 정보를 반환하도록 변경
+#
+#     def perform_create(self, serializer):
+#         code = serializer.validated_data['code']
+#         provider_info = self.get_provider_info()
+#         token_response = self.get_token(code, provider_info)
+#
+#         if token_response.status_code != status.HTTP_200_OK:
+#             return Response(
+#                 {"msg": f"{provider_info['name']} 서버로부터 토큰을 받아오는데 실패하였습니다."},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#
+#         access_token = token_response.json().get("access_token")
+#         profile_response = self.get_profile(access_token, provider_info)
+#
+#         if profile_response.status_code != status.HTTP_200_OK:
+#             return Response(
+#                 {"msg": f"{provider_info['name']} 서버로부터 프로필 데이터를 받아오는데 실패하였습니다."},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#
+#
+#         # 사용자 정보 반환하도록 수정
+#         user_data = self.login_process_user(self.request, profile_response.json(), provider_info)
+#         return Response(user_data, status=status.HTTP_200_OK)
 
 
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
@@ -169,7 +241,23 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
             "code": code,
         }
 
-        return requests.post(token_url, data=data)
+        def login_proces_user(self.requests, profile_data, provider_info):
+        mock_data = {
+            {
+                "token": "xxxxxxxxxxxxxxxxxxx",
+                "user": {
+                    "id": 1234,
+                    "nick_name": "xxxxx",
+                    "email": "xxxxxxx@example.com",
+                    "profile_image": "https://xxxxxxxx.com/profile.jpg",
+                    "provider": "kakao",
+                }
+            }
+        }
+
+        return Response(mock_data, status=status.HTTP_200_OK)
+
+        # return requests.post(token_url, data=data)    목데이터 활용을 위해 잠시 주석 처리
 
     def get_profile(self, access_token, provider_info):
         profile_url = provider_info["profile_url"]
