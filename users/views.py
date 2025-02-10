@@ -123,6 +123,9 @@ class OAuthCallbackView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)  # 유효성 검사 실패 시 예외 발생
 
+        code = serializer.validated_data['code']
+        logger.debug(f"인가코드: {code}")
+
         return self.perform_create(serializer)  # 사용자 정보를 반환하도록 변경
 
     def perform_create(self, serializer):
