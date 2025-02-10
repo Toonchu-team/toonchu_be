@@ -64,4 +64,4 @@ jobs:
         env:
           DATABASE_URL: mysql:// ${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@${{ secrets.MYSQL_HOST }}:3306/${{ secrets.MYSQL_DATABASE }}
         run: |
-          poetry run python manage.py runserver --settings=config.settings.local
+          poetry run python manage.py test --settings=config.settings.local
