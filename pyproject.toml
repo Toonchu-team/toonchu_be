@@ -1,9 +1,13 @@
 [tool.poetry]
-name = "toonchu"
+name = "toonchu_be"
 version = "0.1.0"
 description = ""
 authors = ["Kimmyeonghyeon0 <Kimmyeonghyeom0>"]
 readme = "README.md"
+
+packages = [
+    { include = "toonchu_pkg"},
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"
