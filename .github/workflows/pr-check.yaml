@@ -60,6 +60,10 @@ jobs:
           echo SECRET_KEY="$SECRET_KEY" >> .env
           cat .env
 
+      - name: Remove existing migrations
+        run: |
+          rm -f */migrations/0*.py
+
       - name: Run Django tests
         env:
           DATABASE_URL: mysql:// ${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@${{ secrets.MYSQL_HOST }}:3306/${{ secrets.MYSQL_DATABASE }}
