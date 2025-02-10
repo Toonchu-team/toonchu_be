@@ -29,7 +29,6 @@ class Webtoon(CommonModel):
     ]
     title = models.CharField(max_length=100, null=False, blank=False)
     author = models.CharField(max_length=50, null=False, blank=False)
-    description = models.TextField()
     thumbnail = models.ImageField(upload_to='webtoons/thumbnails', null=False, blank=False)
     age_rating = models.CharField(max_length=10)
     publication_day = models.DateField(null=False, blank=False)
