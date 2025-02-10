@@ -10,9 +10,6 @@ on:
       - main
       - dev
 
-variables:
-  SECRET_KEY: $SECRET_KEY
-
 jobs:
   test:
     runs-on: ubuntu-20.04
