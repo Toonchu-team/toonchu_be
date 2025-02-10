@@ -148,8 +148,6 @@ class OAuthCallbackView(generics.CreateAPIView):
 
 
 
-
-
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
         summary="카카오 OAuth 콜백",
@@ -199,17 +197,6 @@ class LogoutView(generics.CreateAPIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
-from django.http import HttpResponseNotAllowed
-import os
-from django.utils import timezone
-
-from .serializers import UserProfileSerializer
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
