@@ -1,27 +1,30 @@
+import json
+import logging
+import os
+from abc import abstractmethod
+
+import requests
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseNotAllowed
 from django.utils import timezone
-from rest_framework import generics, status, permissions
+from drf_spectacular.utils import OpenApiResponse, OpenApiTypes, extend_schema
+from rest_framework import generics, permissions, request, status
 from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
 from rest_framework.response import Response
-from rest_framework import request
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import CustomUser
-from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
-from .serializers import LogoutSerializer, UserProfileSerializer, SocialLoginSerializer
-
-
-from abc import abstractmethod
-import requests
-import os
-import logging
-import json
+from .oauth_mixins import (
+    GoogleProviderInfoMixin,
+    KaKaoProviderInfoMixin,
+    NaverProviderInfoMixin,
+)
+from .serializers import LogoutSerializer, SocialLoginSerializer, UserProfileSerializer
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
 
 class BaseSocialLoginView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
@@ -58,6 +61,7 @@ class BaseSocialLoginView(generics.RetrieveAPIView):
 
         return Response({"auth_url": auth_url})
 
+
 class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     serializer_class = SocialLoginSerializer
 
@@ -68,6 +72,7 @@ class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
 
 class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
     serializer_class = SocialLoginSerializer
@@ -80,6 +85,7 @@ class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
 
 class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
     serializer_class = SocialLoginSerializer
@@ -104,7 +110,7 @@ class OAuthCallbackView(generics.CreateAPIView):
 
         # 🔥 2. 원본 요청 바디 확인 (혹시 JSON 파싱이 안 되는지 체크)
         try:
-            raw_body = request.body.decode('utf-8')  # 바이너리 데이터를 문자열로 변환
+            raw_body = request.body.decode("utf-8")  # 바이너리 데이터를 문자열로 변환
             json_body = json.loads(raw_body)  # JSON 형식이면 파싱
             print(f"📦 Raw JSON Payload: {json_body}")
             logger.debug(f"📦 Raw JSON Payload: {json_body}")
@@ -116,7 +122,7 @@ class OAuthCallbackView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             # 🔥 4. 인가 코드가 정상적으로 들어왔는지 확인
-            code = serializer.validated_data.get('code')
+            code = serializer.validated_data.get("code")
             print(f"💡 받은 인가 코드: {code}")
             logger.debug(f"💡 받은 인가 코드: {code}")
             return self.perform_create(serializer)
@@ -124,7 +130,6 @@ class OAuthCallbackView(generics.CreateAPIView):
             print(f"❌ Serializer validation failed: {serializer.errors}")
             logger.debug(f"❌ Serializer validation failed: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
@@ -156,7 +161,7 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
                     "email": "xxxxxxx@example.com",
                     "profile_image": "https://xxxxxxxx.com/profile.jpg",
                     "provider": provider_info.get("name", "unknown"),
-                }
+                },
             }
 
             return Response(mock_data, status=status.HTTP_200_OK)
@@ -241,10 +246,12 @@ class LogoutView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         try:
-            refresh_token = serializer.validated_data['refresh_token']
+            refresh_token = serializer.validated_data["refresh_token"]
             token = RefreshToken(refresh_token)
             token.blacklist()
-            return Response({"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+            )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -267,7 +274,10 @@ class UserProfileView(generics.GenericAPIView):
         serializer = self.get_serializer(self.get_object())
         data = serializer.data
         return Response(
-            {"message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다", "user": data},
+            {
+                "message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다",
+                "user": data,
+            },
             status=status.HTTP_200_OK,
         )
 

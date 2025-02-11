@@ -21,7 +21,9 @@ class GoogleProviderInfoMixin:
     def get_provider_info(self):
         return {
             "name": "구글",
-            "callback_url": settings.GOOGLE_CALLBACK_URL.rstrip('/'),  # Remove trailing slash
+            "callback_url": settings.GOOGLE_CALLBACK_URL.rstrip(
+                "/"
+            ),  # Remove trailing slash
             "token_url": "https://oauth2.googleapis.com/token",
             "profile_url": "https://www.googleapis.com/oauth2/v1/userinfo",
             "client_id": settings.GOOGLE_CLIENT_ID,
@@ -34,13 +36,13 @@ class GoogleProviderInfoMixin:
 
     def get_auth_url(self, provider_info):
         params = {
-            'response_type': 'code',
-            'client_id': provider_info['client_id'],
-            'redirect_uri': provider_info['callback_url'],
-            'scope': 'email profile',
-            'access_type': 'offline',
-            'include_granted_scopes': 'true',
-            'state': 'state_parameter_passthrough_value'
+            "response_type": "code",
+            "client_id": provider_info["client_id"],
+            "redirect_uri": provider_info["callback_url"],
+            "scope": "email profile",
+            "access_type": "offline",
+            "include_granted_scopes": "true",
+            "state": "state_parameter_passthrough_value",
         }
         return f"{provider_info['authorization_url']}?{'&'.join(f'{k}={v}' for k, v in params.items())}"
 
