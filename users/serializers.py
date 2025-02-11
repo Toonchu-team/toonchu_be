@@ -10,8 +10,11 @@ class SocialLoginSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['email', 'nick_name', 'profile_img', 'provider', 'is_adult']
-        read_only_fields = ['email', 'provider', 'is_adult']
+        fields = [
+            'id', 'email', 'nick_name', 'profile_img', 'provider', 'is_adult', 'is_created', 'is_updated'
+        ]
+        read_only_fields = ["id", "email", "provider", "is_adult", "is_created"]
+
 
     def validate_nick_name(self, value):
         MinLengthValidator(2)(value)

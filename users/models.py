@@ -55,6 +55,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     withdraw_at = models.DateTimeField(null=True, blank=True)
 
 
+
     def set_un_user_password(self):
         self.set_unusable_password()  # set_unusable_password사용 비밀번호 입력하여 로그인 하는 방식 제거 Oauth 이용한 소셜로그인 사용을 위해 추가
 
