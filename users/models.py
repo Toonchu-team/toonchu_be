@@ -43,12 +43,15 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     email = models.EmailField(null=False)  # unique=True 제거
     nick_name = models.CharField(max_length=100, unique=True)
-    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    provider = models.CharField(
+        max_length=20, choices=PROVIDER_CHOICES, null=True, blank=True
+    )
     profile_img = models.ImageField(upload_to="profile", blank=True, null=True)
     is_adult = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_updated = models.DateTimeField(null=True, blank=True)
     is_created = models.DateTimeField(auto_now_add=True)
+    withdraw_at = models.DateTimeField(null=True, blank=True)
 
     def set_un_user_password(self):
         self.set_unusable_password()  # set_unusable_password사용 비밀번호 입력하여 로그인 하는 방식 제거 Oauth 이용한 소셜로그인 사용을 위해 추가

@@ -21,17 +21,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "profile_img",
             "provider",
             "is_adult",
-            "is_admin",
-            "created_at",
-            "updated_at",
+            "is_created",
+            "is_updated",
         ]
         read_only_fields = [
             "id",
             "email",
             "provider",
             "is_adult",
-            "is_admin",
-            "created_at",
+            "is_created",
         ]
 
     def validate_nick_name(self, value):
@@ -42,3 +40,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
+
+
+class NicknameCheckSerializer(serializers.Serializer):
+    input_nick_name = serializers.CharField(required=True)
