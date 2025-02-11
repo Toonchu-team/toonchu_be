@@ -20,3 +20,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
+
+
+class NicknameCheckSerializer(serializers.Serializer):
+    input_nick_name = serializers.CharField(required=True)
