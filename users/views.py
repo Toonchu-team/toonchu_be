@@ -112,6 +112,7 @@ class OAuthCallbackView(generics.CreateAPIView):
             print("요청 바디가 JSON이 아닙니다.")
             logger.debug("요청 바디가 JSON이 아닙니다.")
 
+
         # 🔥 3. serializer 유효성 검사 진행
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -230,6 +231,7 @@ class OAuthCallbackView(generics.CreateAPIView):
 
 
 
+
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
         summary="카카오 OAuth 콜백",
@@ -250,21 +252,8 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
             "code": code,
         }
 
-        def login_process_user(self, request, profile_data, provider_info):
-            mock_data = {
-                "token": "xxxxxxxxxxxxxxxxxxx",
-                "user": {
-                    "id": 1234,
-                    "nick_name": "xxxxx",
-                    "email": "xxxxxxx@example.com",
-                    "profile_image": "https://xxxxxxxx.com/profile.jpg",
-                    "provider": provider_info.get("name", "unknown"),
-                }
-            }
 
-            return Response(mock_data, status=status.HTTP_200_OK)
-
-        # return requests.post(token_url, data=data)    목데이터 활용을 위해 잠시 주석 처리
+        return requests.post(token_url, data=data)
 
     def get_profile(self, access_token, provider_info):
         profile_url = provider_info["profile_url"]
@@ -327,6 +316,7 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
         profile_url = provider_info["profile_url"]
         headers = {"Authorization": f"Bearer {access_token}"}
         return requests.get(profile_url, headers=headers)
+
 
 
 class LogoutView(generics.CreateAPIView):
