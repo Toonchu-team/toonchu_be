@@ -55,14 +55,37 @@ jobs:
         shell: bash
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_SECRET: ${{ secrets.KAKAO_SECRET }}
+          KAKA0_REDIRECT_URI: ${{ secrets.KAKAO_REDIRECT_URI }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_SECRET: ${{ secrets.GOOGLE_SECRET }}
+          GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_SECRET: ${{ secrets.NAVER_SECRET }}
+          NAVER_REDIRECT_URI: ${{ secrets.NAVER_REDIRECT_URI }}
         run: |
           touch .env
           echo SECRET_KEY="$SECRET_KEY" >> .env
+          echo KAKAO_REST_API_KEY=$KAKAO_REST_API_KEY >> .env
+          echo KAKAO_SECRET=$KAKAO_SECRET >> .env
+          echo KAKAO_REDIRECT_URI=$KAKAO_REDIRECT_URI >> .env
+          echo GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID >>.env
+          echo GOOGLE_SECRET=$GOOGLE_SECRET >> .env
+          echo GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI >> .env
+          echo NAVER_CLIENT_ID=$NAVER_CLIENT_ID >> .env
+          echo NAVER_SECRET=$NAVER_SECRET >> .env
+          echo NAVER_REDIRECT_URI=$NAVER_REDIRECT_URI >> .env
           cat .env
 
       - name: Remove existing migrations
         run: |
           rm -f */migrations/0*.py
+
+      - name: Check migrations
+        run: |
+          poetry run python manage.py makemigrations --settings=config.settings.local
+          poetry run python manage.py migrate --settings=config.settings.local
 
       - name: Run Django tests
         env:
