@@ -53,7 +53,6 @@ class WebtoonsSerializer(serializers.ModelSerializer):
         fields = [
             "title",
             "author",
-            "description",
             "thumbnail",
             "webtoon_url",
             "publication_day",
