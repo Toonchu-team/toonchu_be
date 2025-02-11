@@ -7,7 +7,7 @@ from .views import (
     UserProfileView,
     NaverCallbackView,
     GoogleCallbackView,
-    KakaoCallbackView
+    KakaoCallbackView, UserWithdrawView
 )
 
 urlpatterns = [
@@ -22,6 +22,7 @@ urlpatterns = [
     path('callback/naver/', NaverCallbackView.as_view(), name='naver-callback'),
 
     # User Management URLs
-    path('logout/', LogoutView.as_view(), name='logout'),
-    path('profile/update/', UserProfileView.as_view(), name='profile-update'),
+    path('me/logout/', LogoutView.as_view(), name='logout'),
+    path('me/profile/update/', UserProfileView.as_view(), name='profile-update'),
+    path('me/profile/withdraw/', UserWithdrawView.as_view(), name='profile-withdraw'),
 ]

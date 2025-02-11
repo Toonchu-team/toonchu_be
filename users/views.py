@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.http import HttpResponseNotAllowed
 from django.utils import timezone
 from rest_framework import generics, status, permissions
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework import request
@@ -12,14 +12,17 @@ from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
 
 from .models import CustomUser
 from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
-from .serializers import LogoutSerializer, UserProfileSerializer, SocialLoginSerializer
-
+from .serializers import LogoutSerializer, UserProfileSerializer, SocialLoginSerializer, NicknameCheckSerializer
 
 from abc import abstractmethod
 import requests
 import os
 import logging
+
+import datetime
+
 import json
+
 
 logger = logging.getLogger(__name__)
 
@@ -230,8 +233,6 @@ class OAuthCallbackView(generics.CreateAPIView):
 
 
 
-
-
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
         summary="카카오 OAuth 콜백",
@@ -402,3 +403,39 @@ class UserProfileView(generics.GenericAPIView):
         user.is_updated = timezone.now()
         user.save()
         serializer.save()
+
+
+class UserWithdrawView(generics.GenericAPIView):
+    serializer_class = NicknameCheckSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="회원 탈퇴 요청",
+        description="회원 탈퇴 요청을 처리합니다. 닉네임 일치 여부를 확인하고, 50일 후 사용자 정보를 삭제합니다.",
+        request=NicknameCheckSerializer,
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+        },
+        tags=["🚨🚨🚨 User Withdraw 🚨🚨🚨"],
+    )
+
+
+    def delete(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        input_nick_name = serializer.validated_data['input_nick_name']
+        user = self.request.user
+
+        if user.nick_name != input_nick_name:
+            return Response({"message": "입력한 닉네임과 일치하지 않습니다."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.withdraw_at = timezone.now()
+        delete_date = timezone.now() + datetime.timedelta(days=50)
+        user.is_active = False
+        user.save()
+
+        request_data = {"message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.", "deletion_date": delete_date}
+        return Response({"data": request_data}, status=status.HTTP_200_OK)
+
