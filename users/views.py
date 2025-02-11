@@ -106,80 +106,63 @@ class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
 
 class OAuthCallbackView(generics.CreateAPIView):
     permission_classes = [AllowAny]
-    serializer_class = SocialLoginSerializer
+    serializer_class = SocialLoginSerializer  # 요청 데이터 검증용 Serializer
 
     def create(self, request, *args, **kwargs):
-        # 🔥 1. 들어온 요청 데이터 확인
-        print(f"📩 request.data: {request.data}")
-        logger.debug(f"📩 request.data: {request.data}")
-
-        # 🔥 2. 원본 요청 바디 확인 (혹시 JSON 파싱이 안 되는지 체크)
-        try:
-            raw_body = request.body.decode("utf-8")  # 바이너리 데이터를 문자열로 변환
-            json_body = json.loads(raw_body)  # JSON 형식이면 파싱
-            print(f"Raw JSON Payload: {json_body}")
-            logger.debug(f"Raw JSON Payload: {json_body}")
-        except json.JSONDecodeError:
-            print("요청 바디가 JSON이 아닙니다.")
-            logger.debug("요청 바디가 JSON이 아닙니다.")
-
-        # 🔥 3. serializer 유효성 검사 진행
+        # 🔥 1. 요청 데이터 검증
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            # 🔥 4. 인가 코드가 정상적으로 들어왔는지 확인
-            code = serializer.validated_data.get("code")
-            print(f"💡 받은 인가 코드: {code}")
-            logger.debug(f"💡 받은 인가 코드: {code}")
+        serializer.is_valid(raise_exception=True)
 
-            # ✅ 5. 인가 코드로 access_token 요청
-            provider_info = self.get_provider_info()
-            token_response = self.get_token(code, provider_info)
+        # 🔥 2. 인가 코드 추출
+        code = serializer.validated_data.get("code")
+        logger.debug(f"💡 받은 인가 코드: {code}")
 
-            if token_response.status_code != status.HTTP_200_OK:
-                logger.error(
-                    f"{provider_info['name']} 토큰 요청 실패: {token_response.text}"
-                )
-                return Response(
-                    {
-                        "msg": f"{provider_info['name']} 서버에서 토큰을 가져올 수 없습니다."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # 🔥 3. OAuth 공급자 정보 가져오기
+        provider_info = self.get_provider_info()
 
-            access_token = token_response.json().get("access_token")
-            if not access_token:
-                logger.error(
-                    f"{provider_info['name']} 응답에서 access_token 없음: {token_response.json()}"
-                )
-                return Response(
-                    {"msg": "엑세스 토큰을 찾을 수 없습니다."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # ✅ 4. 인가 코드를 사용하여 access_token 요청
+        token_response = self.get_token(code, provider_info)
+        if token_response.status_code != status.HTTP_200_OK:
+            logger.error(
+                f"{provider_info['name']} 토큰 요청 실패: {token_response.text}"
+            )
+            return Response(
+                {"msg": f"{provider_info['name']} 서버에서 토큰을 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            logger.debug(f"🔑 발급된 access_token: {access_token}")
+        # 🔑 access_token 추출
+        access_token = token_response.json().get("access_token")
+        if not access_token:
+            logger.error(
+                f"{provider_info['name']} 응답에서 access_token 없음: {token_response.json()}"
+            )
+            return Response(
+                {"msg": "엑세스 토큰을 찾을 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            # ✅ 6. access_token을 사용하여 사용자 프로필 정보 요청
-            profile_response = self.get_profile(access_token, provider_info)
-            if profile_response.status_code != status.HTTP_200_OK:
-                logger.error(
-                    f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}"
-                )
-                return Response(
-                    {
-                        "msg": f"{provider_info['name']} 서버에서 사용자 정보를 가져올 수 없습니다."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        logger.debug(f"🔑 발급된 access_token: {access_token}")
 
-            user_data = profile_response.json()
-            logger.debug(f"사용자 정보: {user_data}")
+        # ✅ 5. access_token을 사용하여 사용자 프로필 정보 요청
+        profile_response = self.get_profile(access_token, provider_info)
+        if profile_response.status_code != status.HTTP_200_OK:
+            logger.error(
+                f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}"
+            )
+            return Response(
+                {
+                    "msg": f"{provider_info['name']} 서버에서 사용자 정보를 가져올 수 없습니다."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            # 7. 로그인 또는 회원가입 처리
-            return self.login_process_user(request, user_data, provider_info)
-        else:
-            print(f"Serializer validation failed: {serializer.errors}")
-            logger.debug(f"Serializer validation failed: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # 사용자 프로필 데이터 추출
+        user_data = profile_response.json()
+        logger.debug(f"사용자 정보: {user_data}")
+
+        # ✅ 6. 로그인 또는 회원가입 처리 및 응답 반환
+        return self.login_process_user(request, user_data, provider_info)
 
     def get_provider_info(self):
         """
@@ -224,7 +207,7 @@ class OAuthCallbackView(generics.CreateAPIView):
 
     def login_process_user(self, request, profile_data, provider_info):
         """
-        로그인 또는 회원가입 처리
+        로그인 또는 회원가입 처리 및 JWT 토큰 생성 후 응답 반환
         """
         email = profile_data.get("email")
         if not email:
@@ -232,28 +215,28 @@ class OAuthCallbackView(generics.CreateAPIView):
                 {"msg": "이메일 정보가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        # 기존 유저를 가져오거나 신규 유저 생성
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
                 "nick_name": profile_data.get("nickname")
-                or f"User_{uuid.uuid4().hex[:6]}",  # 랜덤 닉네임 생성
+                or f"User_{uuid.uuid4().hex[:6]}",  # 닉네임이 없으면 랜덤 생성
                 "profile_img": profile_data.get("profile_image"),
                 "social_provider": provider_info["name"].lower(),
             },
         )
 
+        # JWT 토큰 생성
         refresh = RefreshToken.for_user(user)
+
+        # JSON 응답 반환
         return Response(
             {
-                "access_token": str(refresh.access_token),
-                "refresh_token": str(
-                    refresh
-                ),  # 클라이언트가 refresh token을 저장할 수 있도록 추가
+                "token": str(refresh.access_token),  # Access Token만 반환
                 "user": {
                     "id": user.id,
                     "nick_name": user.nick_name,
-                    "email": user.email,
-                    "profile_image": user.profile_img,
+                    "profile_img": user.profile_img,
                     "provider": provider_info["name"].lower(),
                 },
             },
@@ -281,24 +264,58 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
             "code": code,
         }
 
-        def login_process_user(self, request, profile_data, provider_info):
-            mock_data = {
-                "token": "xxxxxxxxxxxxxxxxxxx",
-                "user": {
-                    "id": 1234,
-                    "nick_name": "xxxxx",
-                    "email": "xxxxxxx@example.com",
-                    "profile_image": "https://xxxxxxxx.com/profile.jpg",
-                    "provider": provider_info.get("name", "unknown"),
-                },
-            }
-
         return requests.post(token_url, data=data)
 
     def get_profile(self, access_token, provider_info):
         profile_url = provider_info["profile_url"]
         headers = {"Authorization": f"Bearer {access_token}"}
         return requests.get(profile_url, headers=headers)
+
+    def create(self, request, *args, **kwargs):
+        # 1. 인증 코드 확인
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        code = serializer.validated_data.get("code")
+
+        # 2. OAuth 공급자 정보 가져오기
+        provider_info = self.get_provider_info()
+
+        # 3. 엑세스 토큰 요청
+        token_response = self.get_token(code, provider_info)
+        if token_response.status_code != status.HTTP_200_OK:
+            return Response(
+                {"msg": "카카오 서버에서 토큰을 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        access_token = token_response.json().get("access_token")
+        if not access_token:
+            return Response(
+                {"msg": "카카오 서버에서 엑세스 토큰을 찾을 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 4. 사용자 프로필 정보 요청
+        profile_response = self.get_profile(access_token, provider_info)
+        if profile_response.status_code != status.HTTP_200_OK:
+            return Response(
+                {"msg": "카카오 서버에서 사용자 정보를 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_data = profile_response.json()
+
+        # 5. 이메일 정보가 있는지 확인
+        if not user_data.get("kakao_account", {}).get("email"):
+            return Response(
+                {
+                    "msg": "카카오 계정에 이메일 정보가 없습니다. 이메일 제공에 동의해주세요."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 6. 로그인 또는 회원가입 처리
+        return self.login_process_user(request, user_data, provider_info)
 
 
 class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
@@ -328,6 +345,52 @@ class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
         headers = {"Authorization": f"Bearer {access_token}"}
         return requests.get(profile_url, headers=headers)
 
+    def create(self, request, *args, **kwargs):
+        # 1. 인증 코드 확인
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        code = serializer.validated_data.get("code")
+
+        # 2. OAuth 공급자 정보 가져오기
+        provider_info = self.get_provider_info()
+
+        # 3. 엑세스 토큰 요청
+        token_response = self.get_token(code, provider_info)
+        if token_response.status_code != status.HTTP_200_OK:
+            return Response(
+                {"msg": "구글 서버에서 토큰을 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        access_token = token_response.json().get("access_token")
+        if not access_token:
+            return Response(
+                {"msg": "구글 서버에서 엑세스 토큰을 찾을 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 4. 사용자 프로필 정보 요청
+        profile_response = self.get_profile(access_token, provider_info)
+        if profile_response.status_code != status.HTTP_200_OK:
+            return Response(
+                {"msg": "구글 서버에서 사용자 정보를 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_data = profile_response.json()
+
+        # 5. 이메일 정보가 있는지 확인
+        if not user_data.get("email"):
+            return Response(
+                {
+                    "msg": "구글 계정에 이메일 정보가 없습니다. 이메일 제공에 동의해주세요."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 6. 로그인 또는 회원가입 처리
+        return self.login_process_user(request, user_data, provider_info)
+
 
 class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
@@ -356,6 +419,52 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
         profile_url = provider_info["profile_url"]
         headers = {"Authorization": f"Bearer {access_token}"}
         return requests.get(profile_url, headers=headers)
+
+    def create(self, request, *args, **kwargs):
+        # 1. 인증 코드 확인
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        code = serializer.validated_data.get("code")
+
+        # 2. OAuth 공급자 정보 가져오기
+        provider_info = self.get_provider_info()
+
+        # 3. 엑세스 토큰 요청
+        token_response = self.get_token(code, provider_info)
+        if token_response.status_code != status.HTTP_200_OK:
+            return Response(
+                {"msg": "네이버 서버에서 토큰을 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        access_token = token_response.json().get("access_token")
+        if not access_token:
+            return Response(
+                {"msg": "네이버 서버에서 엑세스 토큰을 찾을 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 4. 사용자 프로필 정보 요청
+        profile_response = self.get_profile(access_token, provider_info)
+        if profile_response.status_code != status.HTTP_200_OK:
+            return Response(
+                {"msg": "네이버 서버에서 사용자 정보를 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_data = profile_response.json()
+
+        # 5. 이메일 정보가 있는지 확인
+        if not user_data.get("response", {}).get("email"):
+            return Response(
+                {
+                    "msg": "네이버 계정에 이메일 정보가 없습니다. 이메일 제공에 동의해주세요."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 6. 로그인 또는 회원가입 처리
+        return self.login_process_user(request, user_data, provider_info)
 
 
 class LogoutView(generics.CreateAPIView):
@@ -475,7 +584,7 @@ class UserWithdrawView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user.withdraw_at = timezone.now()
+        # user.withdraw_at = timezone.now() # 해당필드가 없어서 주석처리함
         delete_date = timezone.now() + datetime.timedelta(days=50)
         user.is_active = False
         user.save()

@@ -26,7 +26,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "email",
             "provider",
             "is_adult",
             "is_created",
