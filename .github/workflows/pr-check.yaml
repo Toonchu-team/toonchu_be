@@ -67,6 +67,7 @@ jobs:
         run: |
           touch .env
           echo SECRET_KEY="$SECRET_KEY" >> .env
+          echo DB_NAME=mysql >> .env
           echo KAKAO_REST_API_KEY=$KAKAO_REST_API_KEY >> .env
           echo KAKAO_SECRET=$KAKAO_SECRET >> .env
           echo KAKAO_REDIRECT_URI=$KAKAO_REDIRECT_URI >> .env
