@@ -1,35 +1,29 @@
-import os
-from abc import abstractmethod
-from datetime import timezone
-
-import requests
 from django.contrib.auth import get_user_model
-from django.core.validators import MaxLengthValidator, MinLengthValidator
-from drf_spectacular.utils import (
-    OpenApiExample,
-    OpenApiResponse,
-    OpenApiTypes,
-    extend_schema,
-)
-from rest_framework import permissions, status
-from rest_framework.exceptions import ValidationError
+from django.http import HttpResponseNotAllowed
+from django.utils import timezone
+from rest_framework import generics, status, permissions
 from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
+from rest_framework.response import Response
+from rest_framework import request
 
-from .models import CustomUser, Provider
-from .oauth_mixins import (
-    GoogleProviderInfoMixin,
-    KaKaoProviderInfoMixin,
-    NaverProviderInfoMixin,
-)
-from .serializers import LogoutSerializer, UserProfileUpdateSerializer
+from .models import CustomUser
+from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
+from .serializers import LogoutSerializer, UserProfileSerializer, SocialLoginSerializer
+
+
+from abc import abstractmethod
+import requests
+import os
+import logging
+import json
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
-
-class BaseSocialLoginView(APIView):
+class BaseSocialLoginView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
 
     @abstractmethod
@@ -64,225 +58,115 @@ class BaseSocialLoginView(APIView):
 
         return Response({"auth_url": auth_url})
 
-
 class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
+    serializer_class = SocialLoginSerializer
+
     @extend_schema(
         summary="카카오 로그인 URL 요청",
         description="카카오 로그인을 위한 인증 URL을 반환합니다.",
         tags=["Kakao Social"],
     )
-    def get(self, request):
-        return super().get(request)
-
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
 class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
+    serializer_class = SocialLoginSerializer
+
     @extend_schema(
         summary="구글 로그인 URL 요청",
         description="구글 로그인을 위한 인증 URL을 반환합니다.",
         responses={200: OpenApiResponse(response={"auth_url": "string"})},
         tags=["Google Social"],
     )
-    def get(self, request):
-        return super().get(request)
-
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
 class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
+    serializer_class = SocialLoginSerializer
+
     @extend_schema(
         summary="네이버 로그인 URL 요청",
         description="네이버 로그인을 위한 인증 URL을 반환합니다.",
         tags=["Naver Social"],
     )
-    def get(self, request):
-        return super().get(request)
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
 
-class OAuthCallbackView(APIView):
+class OAuthCallbackView(generics.CreateAPIView):
     permission_classes = [AllowAny]
+    serializer_class = SocialLoginSerializer
 
-    @abstractmethod
-    def get_provider_info(self):
-        pass
+    def create(self, request, *args, **kwargs):
+        # 🔥 1. 들어온 요청 데이터 확인
+        print(f"📩 request.data: {request.data}")
+        logger.debug(f"📩 request.data: {request.data}")
 
-    @extend_schema(
-        summary="OAuth 콜백 처리",
-        description="소셜 로그인 인증 코드를 받아 사용자 정보를 조회하고 로그인 또는 회원가입을 처리합니다.",
-        parameters=[
-            {
-                "name": "code",
-                "in": "query",
-                "description": "OAuth 인증 코드",
-                "required": True,
-                "type": "string",
-                "example": "0w57FBY27HJ6xCUZAcG7Z-QlFBUnT-qKlMLD2R7lmDJM06Bsvoj4BQAAAAQKPCJSAAABlM-9ooKGtS2__sNdBQ",  # 인가코드 입력예시
-            }
-        ],
-        responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                "Successful login",
-                description="인가코드를 통한 로그인 성공 응답",
-                value={
-                    "email": "user@example.com",
-                    "nick_name": "User Nickname",
-                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                },
-                response_only=True,
-                status_codes=["200"],
-            ),
-            OpenApiExample(
-                "Failed - No authorization code",
-                description="인가코드가 없는 경우",
-                value={"msg": "인가코드가 필요합니다."},
-                response_only=True,
-                status_codes=["400"],
-            ),
-            OpenApiExample(
-                "Failed - Token retrieval error",
-                description="토큰 발급 실패",
-                value={"msg": "서버로 부터 토큰을 받아오는데 실패하였습니다."},
-                response_only=True,
-                status_codes=["400"],
-            ),
-            OpenApiExample(
-                "Failed - Profile retrieval error",
-                description="프로필 조회 실패",
-                value={"msg": "서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."},
-                response_only=True,
-                status_codes=["400"],
-            ),
-        ],
-    )
-
-    # 인가 코드 확인
-    def get(self, request, *args, **kwargs):
-        code = request.GET.get("code")
-        if not code:
-            return Response(
-                {"msg": "인가코드가 필요합니다."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        provider_info = self.get_provider_info()
-        token_response = self.get_token(code, provider_info)  # 액세스 토큰 획득
-
-        if token_response.status_code != status.HTTP_200_OK:
-            return Response(
-                {
-                    "msg": f"{provider_info['name']} 서버로 부터 토큰을 받아오는데 실패하였습니다."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        access_token = token_response.json().get("access_token")
-        profile_response = self.get_profile(
-            access_token, provider_info
-        )  # 사용자 프로필 정보 획득
-
-        if profile_response.status_code != status.HTTP_200_OK:
-            return Response(
-                {
-                    "msg": f"{provider_info['name']} 서버로 부터 프로필 데이터를 받아오는데 실패하였습니다."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # 로그인 또는 회원가입 처리
-        return self.login_process_user(request, profile_response.json(), provider_info)
-
-    # 토큰 획득 메서드
-    def get_token(self, code, provider_info):
-        return requests.post(
-            provider_info["token_url"],
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": provider_info["callback_url"],
-                "client_id": provider_info["client_id"],
-                "client_secret": provider_info["client_secret"],
-            },
-        )
-
-    # 프로필 정보 획득 메서드
-    def get_profile(self, access_token, provider_info):
-        return requests.get(
-            provider_info["profile_url"],
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-type": "application/x-www-form-urlencoded;charset=utf-8",
-            },
-        )
-
-    # 로그인 또는 회원가입 처리 메서드
-    def login_process_user(self, request, profile_res_data, provider_info):
-        email, nick_name, provider_id = self.get_user_data(
-            provider_info, profile_res_data
-        )
-        # 기존 사용자 확인 또는 새 사용자 생성
+        # 🔥 2. 원본 요청 바디 확인 (혹시 JSON 파싱이 안 되는지 체크)
         try:
-            provider = Provider.objects.get(
-                provider=provider_info["name"].lower(), provider_id=provider_id
-            )
-            user = provider.user
-        except Provider.DoesNotExist:
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                user = User.objects.create_user(email=email, nick_name=nick_name)
+            raw_body = request.body.decode('utf-8')  # 바이너리 데이터를 문자열로 변환
+            json_body = json.loads(raw_body)  # JSON 형식이면 파싱
+            print(f"📦 Raw JSON Payload: {json_body}")
+            logger.debug(f"📦 Raw JSON Payload: {json_body}")
+        except json.JSONDecodeError:
+            print("⚠️ 요청 바디가 JSON이 아닙니다.")
+            logger.debug("⚠️ 요청 바디가 JSON이 아닙니다.")
 
-            Provider.objects.create(
-                user=user,
-                provider=provider_info["name"].lower(),
-                provider_id=provider_id,
-                email=email,
-            )
-
-        # JWT 토큰 생성 및 응답
-        refresh_token = RefreshToken.for_user(user)
-        response_data = {
-            "email": user.email,
-            "nick_name": user.nick_name,
-            "access_token": str(refresh_token.access_token),
-        }
-
-        response = Response(response_data, status=status.HTTP_200_OK)
-        response.set_cookie("refresh", str(refresh_token))
-
-        return response
-
-    # 소셜 플랫폼별 사용자 데이터 추출 메서드
-    def get_user_data(self, provider_info, profile_res_data):
-        if provider_info["name"] == "구글":
-            email = profile_res_data.get(provider_info["email_field"])
-            nick_name = profile_res_data.get(
-                provider_info["nickname_field"]
-            )  # 여기서는 'name'을 가져옵니다
-            provider_id = profile_res_data.get("id")
-        elif provider_info["name"] == "네이버":
-            profile_data = profile_res_data.get("response")
-            email = profile_data.get(provider_info["email_field"])
-            nick_name = profile_data.get(provider_info["nickname_field"])
-            provider_id = profile_data.get("id")
-        elif provider_info["name"] == "카카오":
-            account_data = profile_res_data.get("kakao_account")
-            email = account_data.get(provider_info["email_field"])
-            profile_data = account_data.get("profile")
-            nick_name = profile_data.get(provider_info["nickname_field"])
-            provider_id = profile_res_data.get("id")
-        return email, nick_name, provider_id
+        # 🔥 3. serializer 유효성 검사 진행
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            # 🔥 4. 인가 코드가 정상적으로 들어왔는지 확인
+            code = serializer.validated_data.get('code')
+            print(f"💡 받은 인가 코드: {code}")
+            logger.debug(f"💡 받은 인가 코드: {code}")
+            return self.perform_create(serializer)
+        else:
+            print(f"❌ Serializer validation failed: {serializer.errors}")
+            logger.debug(f"❌ Serializer validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# 각 소셜 플랫폼별 콜백 처리 뷰
+
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
     @extend_schema(
         summary="카카오 OAuth 콜백",
         description="카카오 소셜 로그인 콜백을 처리합니다.",
         tags=["Kakao Social"],
     )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+        }
+
+        def login_process_user(self, request, profile_data, provider_info):
+            mock_data = {
+                "token": "xxxxxxxxxxxxxxxxxxx",
+                "user": {
+                    "id": 1234,
+                    "nick_name": "xxxxx",
+                    "email": "xxxxxxx@example.com",
+                    "profile_image": "https://xxxxxxxx.com/profile.jpg",
+                    "provider": provider_info.get("name", "unknown"),
+                }
+            }
+
+            return Response(mock_data, status=status.HTTP_200_OK)
+
+        # return requests.post(token_url, data=data)    목데이터 활용을 위해 잠시 주석 처리
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
 
 
 class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
@@ -291,8 +175,26 @@ class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
         description="구글 소셜 로그인 콜백을 처리합니다.",
         tags=["Google Social"],
     )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+        }
+
+        return requests.post(token_url, data=data)
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
 
 
 class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
@@ -301,12 +203,30 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
         description="네이버 소셜 로그인 콜백을 처리합니다.",
         tags=["Naver Social"],
     )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    def get_token(self, code, provider_info):
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        callback_url = provider_info["callback_url"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "code": code,
+            "state": "YOUR_STATE_VALUE",  # 필요한 경우 state 값 추가
+        }
+
+        return requests.post(token_url, data=data)
+
+    def get_profile(self, access_token, provider_info):
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+        return requests.get(profile_url, headers=headers)
 
 
-# 사용자 로그아웃을 처리하는 뷰
-class LogoutView(APIView):
+class LogoutView(generics.CreateAPIView):
     serializer_class = LogoutSerializer
 
     @extend_schema(
@@ -314,74 +234,78 @@ class LogoutView(APIView):
         description="로그아웃 처리합니다. 로그아웃과 동시에 token값은 blacklist에 보내서 다시 사용 불가",
         tags=["Logout"],
     )
-    def post(self, request):
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            try:
-                refresh_token = serializer.validated_data["refresh_token"]
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                return Response(
-                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-                )
-            except Exception as e:
-                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return self.perform_create(serializer)
+
+    def perform_create(self, serializer):
+        try:
+            refresh_token = serializer.validated_data['refresh_token']
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UserProfileUpdateView(APIView):
-    permission_classes = [
-        permissions.IsAuthenticated
-    ]  # 사용자 토큰 조회 및 확인 자동 실행
+class UserProfileView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UserProfileSerializer
+    queryset = User.objects.all()
+
+    def get_object(self):
+        return self.request.user
+
+    @extend_schema(
+        summary="사용자 프로필 조회",
+        description="인증된 사용자의 프로필 정보를 조회합니다.",
+        responses={200: UserProfileSerializer},
+        tags=["User Profile"],
+    )
+    def get(self, request, *args, **kwargs):  # GET 메서드 처리
+        serializer = self.get_serializer(self.get_object())
+        data = serializer.data
+        return Response(
+            {"message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다", "user": data},
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         summary="사용자 프로필 수정",
         description="인증된 사용자의 닉네임과 프로필 이미지를 수정합니다.",
-        request=UserProfileUpdateSerializer,
-        responses={200: UserProfileUpdateSerializer},
+        request=UserProfileSerializer,
+        responses={200: UserProfileSerializer},
         tags=["User Profile"],
     )
-    def post(self, request, *args, **kwargs):
-        user = request.user
-        serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True)
+    def post(self, request, *args, **kwargs):  # POST 메서드만 처리
+        if request.method not in ["POST"]:
+            return HttpResponseNotAllowed(["POST"])
 
-        if serializer.is_valid():
-            new_nick_name = serializer.validated_data.get(
-                "nick_name"
-            )  # 닉네임 유효성 검사
-            if new_nick_name:
-                try:
-                    MinLengthValidator(2)(
-                        new_nick_name
-                    )  # 닉네임의 최소 길이 2글자로 설정
-                    MaxLengthValidator(16)(
-                        new_nick_name
-                    )  # 닉네임의 최대 길이 16글자로 설정
-                except ValidationError:
-                    return Response(
-                        {"error": "닉네임은 2글자 이상 16자 이하여야 합니다"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        user_data = serializer.data
+        return Response(
+            {"message": "회원 정보가 수정되었습니다.", "user": user_data},
+            status=status.HTTP_200_OK,
+        )
 
-            # 프로필 이미지 처리
-            profile_img = request.FILES.get("profile_img")
-            if profile_img:
-                # 도커 볼륨을 사용하여 이미지 저장
-                upload_dir = "/app/media/profile"  # 도커 볼륨 경로
-                os.makedirs(upload_dir, exist_ok=True)
-                file_path = os.path.join(upload_dir, f"{user.id}_{profile_img.name}")
+    def perform_update(self, serializer):
+        user = self.request.user
+        profile_img = self.request.FILES.get("profile_img")
+        if profile_img:
+            upload_dir = "/app/media/profile"
+            os.makedirs(upload_dir, exist_ok=True)
+            file_path = os.path.join(upload_dir, f"{user.id}_{profile_img.name}")
 
-                with open(file_path, "wb+") as destination:
-                    for chunk in profile_img.chunks():
-                        destination.write(chunk)
+            with open(file_path, "wb+") as destination:
+                for chunk in profile_img.chunks():
+                    destination.write(chunk)
 
-                # 데이터베이스에 이미지 경로 저장
-                user.profile_img = f"/media/profile/{user.id}_{profile_img.name}"
+            user.profile_img = f"/media/profile/{user.id}_{profile_img.name}"
 
-            # 프로필 업데이트 시간 저장
-            user.is_updated = timezone.now()
-            user.save()
-
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user.is_updated = timezone.now()
+        user.save()
+        serializer.save()
