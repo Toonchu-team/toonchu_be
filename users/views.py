@@ -1,12 +1,14 @@
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseNotAllowed
 from django.utils import timezone
 from rest_framework import generics, status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
 from rest_framework.response import Response
 from rest_framework import request
+from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
 
 from .models import CustomUser
 from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
@@ -104,11 +106,12 @@ class OAuthCallbackView(generics.CreateAPIView):
         try:
             raw_body = request.body.decode('utf-8')  # 바이너리 데이터를 문자열로 변환
             json_body = json.loads(raw_body)  # JSON 형식이면 파싱
-            print(f"📦 Raw JSON Payload: {json_body}")
-            logger.debug(f"📦 Raw JSON Payload: {json_body}")
+            print(f"Raw JSON Payload: {json_body}")
+            logger.debug(f"Raw JSON Payload: {json_body}")
         except json.JSONDecodeError:
-            print("⚠️ 요청 바디가 JSON이 아닙니다.")
-            logger.debug("⚠️ 요청 바디가 JSON이 아닙니다.")
+            print("요청 바디가 JSON이 아닙니다.")
+            logger.debug("요청 바디가 JSON이 아닙니다.")
+
 
         # 🔥 3. serializer 유효성 검사 진행
         serializer = self.get_serializer(data=request.data)
@@ -117,11 +120,115 @@ class OAuthCallbackView(generics.CreateAPIView):
             code = serializer.validated_data.get('code')
             print(f"💡 받은 인가 코드: {code}")
             logger.debug(f"💡 받은 인가 코드: {code}")
-            return self.perform_create(serializer)
+
+            # ✅ 5. 인가 코드로 access_token 요청
+            provider_info = self.get_provider_info()
+            token_response = self.get_token(code, provider_info)
+
+            if token_response.status_code != status.HTTP_200_OK:
+                logger.error(f"{provider_info['name']} 토큰 요청 실패: {token_response.text}")
+                return Response(
+                    {"msg": f"{provider_info['name']} 서버에서 토큰을 가져올 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            access_token = token_response.json().get("access_token")
+            if not access_token:
+                logger.error(f"{provider_info['name']} 응답에서 access_token 없음: {token_response.json()}")
+                return Response({"msg": "엑세스 토큰을 찾을 수 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
+
+            logger.debug(f"🔑 발급된 access_token: {access_token}")
+
+            # ✅ 6. access_token을 사용하여 사용자 프로필 정보 요청
+            profile_response = self.get_profile(access_token, provider_info)
+            if profile_response.status_code != status.HTTP_200_OK:
+                logger.error(f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}")
+                return Response(
+                    {"msg": f"{provider_info['name']} 서버에서 사용자 정보를 가져올 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user_data = profile_response.json()
+            logger.debug(f"사용자 정보: {user_data}")
+
+            # 7. 로그인 또는 회원가입 처리
+            return self.login_process_user(request, user_data, provider_info)
         else:
-            print(f"❌ Serializer validation failed: {serializer.errors}")
-            logger.debug(f"❌ Serializer validation failed: {serializer.errors}")
+            print(f"Serializer validation failed: {serializer.errors}")
+            logger.debug(f"Serializer validation failed: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get_provider_info(self):
+        """
+        각 OAuth 공급자에 대한 정보를 제공해야 합니다.
+        하위 클래스에서 반드시 구현해야 합니다.
+        """
+        raise NotImplementedError
+
+    def get_token(self, code, provider_info):
+        """
+        인가 코드를 사용해 access_token을 요청하는 함수
+        """
+        token_url = provider_info["token_url"]
+        client_id = provider_info["client_id"]
+        client_secret = provider_info["client_secret"]
+        redirect_uri = provider_info["redirect_uri"]
+
+        data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+        }
+
+        response = requests.post(token_url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        return response
+
+    def get_profile(self, access_token, provider_info):
+        """
+        access_token을 사용하여 사용자 프로필을 요청하는 함수
+        """
+        profile_url = provider_info["profile_url"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        response = requests.get(profile_url, headers=headers)
+        return response
+
+    def login_process_user(self, request, profile_data, provider_info):
+        """
+        로그인 또는 회원가입 처리
+        """
+        email = profile_data.get("email")
+        if not email:
+            return Response({"msg": "이메일 정보가 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "nick_name": profile_data.get("nickname") or f"User_{uuid.uuid4().hex[:6]}",  # 랜덤 닉네임 생성
+                "profile_img": profile_data.get("profile_image"),
+                "social_provider": provider_info["name"].lower(),
+            },
+        )
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh),  # 클라이언트가 refresh token을 저장할 수 있도록 추가
+                "user": {
+                    "id": user.id,
+                    "nick_name": user.nick_name,
+                    "email": user.email,
+                    "profile_image": user.profile_img,
+                    "provider": provider_info["name"].lower(),
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 
 
 
