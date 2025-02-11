@@ -9,8 +9,10 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
+
 from datetime import timedelta
 from pathlib import Path
+
 from dotenv import dotenv_values
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -32,7 +34,8 @@ ALLOWED_HOSTS = []
 
 # Application definition
 CUSTOM_APPS = [
-    'users',
+    "users",
+    "webtoons",
 ]
 
 SYSTEM_APPS = [
@@ -45,12 +48,12 @@ SYSTEM_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'drf_spectacular',
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "drf_spectacular",
 ]
 
-INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS #+ ['corsheaders']
+INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS  # + ['corsheaders']
 
 MIDDLEWARE = [
     # "corsheaders.middleware.CorsMiddleware", 설치가 안됨 잠시 주석처리함
@@ -87,13 +90,13 @@ WSGI_APPLICATION = "config.wsgi.application"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': ENV.get('DB_ENGINE'),
-        'NAME': ENV.get('DB_NAME'),
-        'USER': ENV.get('DB_USER'),
-        'PASSWORD': ENV.get('DB_PASSWORD'),
-        'HOST': ENV.get('DB_HOST'),
-        'PORT': ENV.get('DB_PORT'),
+    "default": {
+        "ENGINE": ENV.get("DB_ENGINE"),
+        "NAME": ENV.get("DB_NAME"),
+        "USER": ENV.get("DB_USER"),
+        "PASSWORD": ENV.get("DB_PASSWORD"),
+        "HOST": ENV.get("DB_HOST"),
+        "PORT": ENV.get("DB_PORT"),
     }
 }
 
@@ -117,21 +120,22 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Swagger settings
 REST_FRAMEWORK = {
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # # JWT 토큰 활성화 후 적용
-    'DEFAULT_AUTHENTICATION_CLASSES': ('rest_framework_simplejwt.authentication.JWTAuthentication',),
-    'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated',),
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
 
 # Swagger settings
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'toonchu',
-    'DESCRIPTION': 'toonchu',
-    'VERSION': '1.0.0',
-    'COMPONENT_SPLIT_REQUEST': True,  # 요청과 응답 스키마 분리
-    'SERVE_INCLUDE_SCHEMA': False,  # 스키마 엔드포인트를 포함하지 않도록 설정
-}   # '/api/schema/' 숨김처리
+    "TITLE": "toonchu",
+    "DESCRIPTION": "toonchu",
+    "VERSION": "1.0.0",
+    "COMPONENT_SPLIT_REQUEST": True,  # 요청과 응답 스키마 분리
+    "SERVE_INCLUDE_SCHEMA": False,  # 스키마 엔드포인트를 포함하지 않도록 설정
+}  # '/api/schema/' 숨김처리
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
@@ -144,15 +148,16 @@ USE_I18N = True
 
 USE_TZ = False
 
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files
-MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -160,83 +165,79 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom user model
-AUTH_USER_MODEL = 'users.CustomUser'
+AUTH_USER_MODEL = "users.CustomUser"
 
 SITE_ID = 1
 
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = "/"
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': False,
-
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUDIENCE': None,
-    'ISSUER': None,
-
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
-
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM': 'token_type',
-
-    'JTI_CLAIM': 'jti',
-
-    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
-    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
-    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": False,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "VERIFYING_KEY": None,
+    "AUDIENCE": None,
+    "ISSUER": None,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "TOKEN_TYPE_CLAIM": "token_type",
+    "JTI_CLAIM": "jti",
+    "SLIDING_TOKEN_REFRESH_EXP_CLAIM": "refresh_exp",
+    "SLIDING_TOKEN_LIFETIME": timedelta(minutes=5),
+    "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
 # OAuth settings
-KAKAO_CLIENT_ID = ENV.get('KAKAO_REST_API_KEY')  # 변경된 부분
-KAKAO_CLIENT_SECRET = ENV.get('KAKAO_SECRET')
-KAKAO_CALLBACK_URL = ENV.get('KAKAO_REDIRECT_URI')
+KAKAO_CLIENT_ID = ENV.get("KAKAO_REST_API_KEY")  # 변경된 부분
+KAKAO_CLIENT_SECRET = ENV.get("KAKAO_SECRET")
+KAKAO_CALLBACK_URL = ENV.get("KAKAO_REDIRECT_URI")
 
-GOOGLE_CLIENT_ID = ENV.get('GOOGLE_CLIENT_ID')
-GOOGLE_CLIENT_SECRET = ENV.get('GOOGLE_SECRET')
-GOOGLE_CALLBACK_URL = ENV.get('GOOGLE_REDIRECT_URI')
+GOOGLE_CLIENT_ID = ENV.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = ENV.get("GOOGLE_SECRET")
+GOOGLE_CALLBACK_URL = ENV.get("GOOGLE_REDIRECT_URI")
 
-NAVER_CLIENT_ID = ENV.get('NAVER_CLIENT_ID')
-NAVER_CLIENT_SECRET = ENV.get('NAVER_SECRET')
-NAVER_CALLBACK_URL = ENV.get('NAVER_REDIRECT_URI')
+NAVER_CLIENT_ID = ENV.get("NAVER_CLIENT_ID")
+NAVER_CLIENT_SECRET = ENV.get("NAVER_SECRET")
+NAVER_CALLBACK_URL = ENV.get("NAVER_REDIRECT_URI")
 
 # http로 변경 (또는 .env 파일의 URL들을 https로 변경)
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http"
 
 
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
     "http://localhost:3000",  # React, Vue 등의 프론트엔드 서버 주소
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'debug.log',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "debug.log",
         },
     },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'level': 'DEBUG',
-            'propagate': True,
+    "loggers": {
+        "django": {
+            "handlers": ["file"],
+            "level": "DEBUG",
+            "propagate": True,
         },
     },
 }
 
-GOOGLE_OAUTH2_SCOPE = ['email', 'profile']  # 새로운 설정 추가
-
+GOOGLE_OAUTH2_SCOPE = ["email", "profile"]  # 새로운 설정 추가

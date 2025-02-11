@@ -1,0 +1,90 @@
+name: Dev/Main Branch Migration Check
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-retries=3
+          
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL http://install.python-poetry.org | python3 -
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run code format check
+        run: |
+          poetry run black --check --diff .
+          poetry run isort --check-only --diff .
+
+      - name: Create .env file
+        shell: bash
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_SECRET: ${{ secrets.KAKAO_SECRET }}
+          KAKA0_REDIRECT_URI: ${{ secrets.KAKAO_REDIRECT_URI }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_SECRET: ${{ secrets.GOOGLE_SECRET }}
+          GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_SECRET: ${{ secrets.NAVER_SECRET }}
+          NAVER_REDIRECT_URI: ${{ secrets.NAVER_REDIRECT_URI }}
+        run: |
+          touch .env
+          echo SECRET_KEY="$SECRET_KEY" >> .env
+          echo DB_NAME=mysql >> .env
+          echo KAKAO_REST_API_KEY=$KAKAO_REST_API_KEY >> .env
+          echo KAKAO_SECRET=$KAKAO_SECRET >> .env
+          echo KAKAO_REDIRECT_URI=$KAKAO_REDIRECT_URI >> .env
+          echo GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID >>.env
+          echo GOOGLE_SECRET=$GOOGLE_SECRET >> .env
+          echo GOOGLE_REDIRECT_URI=$GOOGLE_REDIRECT_URI >> .env
+          echo NAVER_CLIENT_ID=$NAVER_CLIENT_ID >> .env
+          echo NAVER_SECRET=$NAVER_SECRET >> .env
+          echo NAVER_REDIRECT_URI=$NAVER_REDIRECT_URI >> .env
+          cat .env
+
+      - name: Remove existing migrations
+        run: |
+          rm -f */migrations/0*.py
+
+      - name: Run Django tests
+        env:
+          DATABASE_URL: mysql:// ${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@${{ secrets.MYSQL_HOST }}:3306/${{ secrets.MYSQL_DATABASE }}
+        run: |
+          poetry run python manage.py test --settings=config.settings.local

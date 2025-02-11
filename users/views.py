@@ -1,32 +1,37 @@
+import datetime
+import json
+import logging
+import os
 import uuid
+from abc import abstractmethod
 
+import requests
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseNotAllowed
 from django.utils import timezone
-from rest_framework import generics, status, permissions
+from drf_spectacular.utils import OpenApiResponse, OpenApiTypes, extend_schema
+from rest_framework import generics, permissions, request, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
-from rest_framework import request
-from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiResponse
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import CustomUser
-from .oauth_mixins import KaKaoProviderInfoMixin, GoogleProviderInfoMixin, NaverProviderInfoMixin
-from .serializers import LogoutSerializer, UserProfileSerializer, SocialLoginSerializer, NicknameCheckSerializer
-
-from abc import abstractmethod
-import requests
-import os
-import logging
-
-import datetime
-
-import json
-
+from .oauth_mixins import (
+    GoogleProviderInfoMixin,
+    KaKaoProviderInfoMixin,
+    NaverProviderInfoMixin,
+)
+from .serializers import (
+    LogoutSerializer,
+    NicknameCheckSerializer,
+    SocialLoginSerializer,
+    UserProfileSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
 
 class BaseSocialLoginView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
@@ -61,6 +66,7 @@ class BaseSocialLoginView(generics.RetrieveAPIView):
 
         return Response({"auth_url": auth_url})
 
+
 class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     serializer_class = SocialLoginSerializer
 
@@ -71,6 +77,7 @@ class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
 
 class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
     serializer_class = SocialLoginSerializer
@@ -83,6 +90,7 @@ class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
 
 class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
     serializer_class = SocialLoginSerializer
@@ -107,7 +115,7 @@ class OAuthCallbackView(generics.CreateAPIView):
 
         # 🔥 2. 원본 요청 바디 확인 (혹시 JSON 파싱이 안 되는지 체크)
         try:
-            raw_body = request.body.decode('utf-8')  # 바이너리 데이터를 문자열로 변환
+            raw_body = request.body.decode("utf-8")  # 바이너리 데이터를 문자열로 변환
             json_body = json.loads(raw_body)  # JSON 형식이면 파싱
             print(f"Raw JSON Payload: {json_body}")
             logger.debug(f"Raw JSON Payload: {json_body}")
@@ -115,12 +123,11 @@ class OAuthCallbackView(generics.CreateAPIView):
             print("요청 바디가 JSON이 아닙니다.")
             logger.debug("요청 바디가 JSON이 아닙니다.")
 
-
         # 🔥 3. serializer 유효성 검사 진행
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             # 🔥 4. 인가 코드가 정상적으로 들어왔는지 확인
-            code = serializer.validated_data.get('code')
+            code = serializer.validated_data.get("code")
             print(f"💡 받은 인가 코드: {code}")
             logger.debug(f"💡 받은 인가 코드: {code}")
 
@@ -129,25 +136,38 @@ class OAuthCallbackView(generics.CreateAPIView):
             token_response = self.get_token(code, provider_info)
 
             if token_response.status_code != status.HTTP_200_OK:
-                logger.error(f"{provider_info['name']} 토큰 요청 실패: {token_response.text}")
+                logger.error(
+                    f"{provider_info['name']} 토큰 요청 실패: {token_response.text}"
+                )
                 return Response(
-                    {"msg": f"{provider_info['name']} 서버에서 토큰을 가져올 수 없습니다."},
+                    {
+                        "msg": f"{provider_info['name']} 서버에서 토큰을 가져올 수 없습니다."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             access_token = token_response.json().get("access_token")
             if not access_token:
-                logger.error(f"{provider_info['name']} 응답에서 access_token 없음: {token_response.json()}")
-                return Response({"msg": "엑세스 토큰을 찾을 수 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
+                logger.error(
+                    f"{provider_info['name']} 응답에서 access_token 없음: {token_response.json()}"
+                )
+                return Response(
+                    {"msg": "엑세스 토큰을 찾을 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             logger.debug(f"🔑 발급된 access_token: {access_token}")
 
             # ✅ 6. access_token을 사용하여 사용자 프로필 정보 요청
             profile_response = self.get_profile(access_token, provider_info)
             if profile_response.status_code != status.HTTP_200_OK:
-                logger.error(f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}")
+                logger.error(
+                    f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}"
+                )
                 return Response(
-                    {"msg": f"{provider_info['name']} 서버에서 사용자 정보를 가져올 수 없습니다."},
+                    {
+                        "msg": f"{provider_info['name']} 서버에서 사용자 정보를 가져올 수 없습니다."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -185,7 +205,11 @@ class OAuthCallbackView(generics.CreateAPIView):
             "redirect_uri": redirect_uri,
         }
 
-        response = requests.post(token_url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        response = requests.post(
+            token_url,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
         return response
 
     def get_profile(self, access_token, provider_info):
@@ -204,12 +228,15 @@ class OAuthCallbackView(generics.CreateAPIView):
         """
         email = profile_data.get("email")
         if not email:
-            return Response({"msg": "이메일 정보가 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"msg": "이메일 정보가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
-                "nick_name": profile_data.get("nickname") or f"User_{uuid.uuid4().hex[:6]}",  # 랜덤 닉네임 생성
+                "nick_name": profile_data.get("nickname")
+                or f"User_{uuid.uuid4().hex[:6]}",  # 랜덤 닉네임 생성
                 "profile_img": profile_data.get("profile_image"),
                 "social_provider": provider_info["name"].lower(),
             },
@@ -219,7 +246,9 @@ class OAuthCallbackView(generics.CreateAPIView):
         return Response(
             {
                 "access_token": str(refresh.access_token),
-                "refresh_token": str(refresh),  # 클라이언트가 refresh token을 저장할 수 있도록 추가
+                "refresh_token": str(
+                    refresh
+                ),  # 클라이언트가 refresh token을 저장할 수 있도록 추가
                 "user": {
                     "id": user.id,
                     "nick_name": user.nick_name,
@@ -230,7 +259,6 @@ class OAuthCallbackView(generics.CreateAPIView):
             },
             status=status.HTTP_200_OK,
         )
-
 
 
 class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
@@ -253,6 +281,17 @@ class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
             "code": code,
         }
 
+        def login_process_user(self, request, profile_data, provider_info):
+            mock_data = {
+                "token": "xxxxxxxxxxxxxxxxxxx",
+                "user": {
+                    "id": 1234,
+                    "nick_name": "xxxxx",
+                    "email": "xxxxxxx@example.com",
+                    "profile_image": "https://xxxxxxxx.com/profile.jpg",
+                    "provider": provider_info.get("name", "unknown"),
+                },
+            }
 
         return requests.post(token_url, data=data)
 
@@ -319,7 +358,6 @@ class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
         return requests.get(profile_url, headers=headers)
 
 
-
 class LogoutView(generics.CreateAPIView):
     serializer_class = LogoutSerializer
 
@@ -335,10 +373,12 @@ class LogoutView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         try:
-            refresh_token = serializer.validated_data['refresh_token']
+            refresh_token = serializer.validated_data["refresh_token"]
             token = RefreshToken(refresh_token)
             token.blacklist()
-            return Response({"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+            )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -361,7 +401,10 @@ class UserProfileView(generics.GenericAPIView):
         serializer = self.get_serializer(self.get_object())
         data = serializer.data
         return Response(
-            {"message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다", "user": data},
+            {
+                "message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다",
+                "user": data,
+            },
             status=status.HTTP_200_OK,
         )
 
@@ -419,23 +462,26 @@ class UserWithdrawView(generics.GenericAPIView):
         },
         tags=["🚨🚨🚨 User Withdraw 🚨🚨🚨"],
     )
-
-
     def delete(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        input_nick_name = serializer.validated_data['input_nick_name']
+        input_nick_name = serializer.validated_data["input_nick_name"]
         user = self.request.user
 
         if user.nick_name != input_nick_name:
-            return Response({"message": "입력한 닉네임과 일치하지 않습니다."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "입력한 닉네임과 일치하지 않습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user.withdraw_at = timezone.now()
         delete_date = timezone.now() + datetime.timedelta(days=50)
         user.is_active = False
         user.save()
 
-        request_data = {"message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.", "deletion_date": delete_date}
+        request_data = {
+            "message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.",
+            "deletion_date": delete_date,
+        }
         return Response({"data": request_data}, status=status.HTTP_200_OK)
-
