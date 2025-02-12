@@ -1,0 +1,549 @@
+openapi: 3.0.3
+info:
+  title: toonchu
+  version: 1.0.0
+  description: toonchu
+paths:
+  /users/callback/google/:
+    post:
+      operationId: users_callback_google_create
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLogin'
+          description: ''
+  /users/callback/kakao/:
+    post:
+      operationId: users_callback_kakao_create
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLogin'
+          description: ''
+  /users/callback/naver/:
+    post:
+      operationId: users_callback_naver_create
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLogin'
+          description: ''
+  /users/login/google/:
+    get:
+      operationId: users_login_google_retrieve
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLogin'
+          description: ''
+  /users/login/kakao/:
+    get:
+      operationId: users_login_kakao_retrieve
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLogin'
+          description: ''
+  /users/login/naver/:
+    get:
+      operationId: users_login_naver_retrieve
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLogin'
+          description: ''
+  /users/me/logout/:
+    post:
+      operationId: users_me_logout_create
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Logout'
+          description: ''
+  /users/me/profile/update/:
+    get:
+      operationId: users_me_profile_update_retrieve
+      description: 인증된 사용자의 프로필 정보를 조회합니다.
+      summary: 사용자 프로필 조회
+      tags:
+      - User Profile
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    post:
+      operationId: users_me_profile_update_create
+      description: 인증된 사용자의 닉네임과 프로필 이미지를 수정합니다.
+      summary: 사용자 프로필 수정
+      tags:
+      - User Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+  /users/me/profile/withdraw/:
+    delete:
+      operationId: users_me_profile_withdraw_destroy
+      description: 회원 탈퇴 요청을 처리합니다. 닉네임 일치 여부를 확인하고, 50일 후 사용자 정보를 삭제합니다.
+      summary: 회원 탈퇴 요청
+      tags:
+      - 🚨🚨🚨 User Withdraw 🚨🚨🚨
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /webtoons/request/:
+    post:
+      operationId: webtoons_request_create
+      tags:
+      - webtoons
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WebtoonsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WebtoonsRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webtoons'
+          description: ''
+components:
+  schemas:
+    CategoryEnum:
+      enum:
+      - genre
+      - matter
+      - atmosphere
+      - relation
+      - job
+      - male character
+      - female character
+      - character
+      - top/bottom
+      - etc
+      type: string
+      description: |-
+        * `genre` - 장르
+        * `matter` - 소재
+        * `atmosphere` - 분위기
+        * `relation` - 관계
+        * `job` - 직업
+        * `male character` - 남캐
+        * `female character` - 여캐
+        * `character` - 캐릭터성
+        * `top/bottom` - 00공수
+        * `etc` - 기타
+    Logout:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required:
+      - refresh_token
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          minLength: 1
+      required:
+      - refresh_token
+    NullEnum:
+      enum:
+      - null
+    PlatformEnum:
+      enum:
+      - naver
+      - kakaopage
+      - kakao
+      - others
+      type: string
+      description: |-
+        * `naver` - 네이버
+        * `kakaopage` - 카카오페이지
+        * `kakao` - 카카오웹툰
+        * `others` - 기타
+    ProviderEnum:
+      enum:
+      - google
+      - naver
+      - kakao
+      type: string
+      description: |-
+        * `google` - Google
+        * `naver` - naver
+        * `kakao` - Kakao
+    SerialDayEnum:
+      enum:
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+      - sat
+      - sun
+      type: string
+      description: |-
+        * `mon` - 월요일
+        * `tue` - 화요일
+        * `wed` - 수요일
+        * `thu` - 목요일
+        * `fri` - 금요일
+        * `sat` - 토요일
+        * `sun` - 일요일
+    SerializationCycleEnum:
+      enum:
+      - 1weeks
+      - 2weeks
+      - 10days
+      - 20days
+      - month
+      - etc.
+      type: string
+      description: |-
+        * `1weeks` - 1주
+        * `2weeks` - 2주
+        * `10days` - 10일
+        * `20days` - 20일
+        * `month` - 한달
+        * `etc.` - 기타
+    SocialLogin:
+      type: object
+      properties:
+        code:
+          type: string
+      required:
+      - code
+    SocialLoginRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+      required:
+      - code
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        tag_name:
+          type: string
+          maxLength: 20
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+      required:
+      - category
+      - id
+      - tag_name
+    TagRequest:
+      type: object
+      properties:
+        tag_name:
+          type: string
+          minLength: 1
+          maxLength: 20
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+      required:
+      - category
+      - tag_name
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        nick_name:
+          type: string
+          maxLength: 100
+        profile_img:
+          type: string
+          format: uri
+          nullable: true
+        provider:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/ProviderEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        is_adult:
+          type: boolean
+          readOnly: true
+        is_created:
+          type: string
+          format: date-time
+          readOnly: true
+        is_updated:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - email
+      - id
+      - is_adult
+      - is_created
+      - nick_name
+      - provider
+    UserProfileRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        nick_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        profile_img:
+          type: string
+          format: binary
+          nullable: true
+        is_updated:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - email
+      - nick_name
+    Webtoons:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+        author:
+          type: string
+          maxLength: 50
+        thumbnail:
+          type: string
+          format: uri
+        webtoon_url:
+          type: string
+          format: uri
+          maxLength: 200
+        publication_day:
+          type: string
+          format: date
+        platform:
+          $ref: '#/components/schemas/PlatformEnum'
+        serial_day:
+          $ref: '#/components/schemas/SerialDayEnum'
+        serialization_cycle:
+          $ref: '#/components/schemas/SerializationCycleEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+      required:
+      - author
+      - created_at
+      - platform
+      - publication_day
+      - serial_day
+      - serialization_cycle
+      - thumbnail
+      - title
+      - updated_at
+      - webtoon_url
+    WebtoonsRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
+        author:
+          type: string
+          minLength: 1
+          maxLength: 50
+        thumbnail:
+          type: string
+          format: binary
+        webtoon_url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 200
+        publication_day:
+          type: string
+          format: date
+        platform:
+          $ref: '#/components/schemas/PlatformEnum'
+        serial_day:
+          $ref: '#/components/schemas/SerialDayEnum'
+        serialization_cycle:
+          $ref: '#/components/schemas/SerializationCycleEnum'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagRequest'
+      required:
+      - author
+      - platform
+      - publication_day
+      - serial_day
+      - serialization_cycle
+      - thumbnail
+      - title
+      - webtoon_url
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
