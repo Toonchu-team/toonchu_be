@@ -1,20 +1,24 @@
 import os
+from datetime import datetime, timezone
+
 import requests
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
+from rest_framework import generics, permissions, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status, generics, permissions
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from users.serializers import NicknameCheckSerializer, UserProfileSerializer, LogoutSerializer
-from datetime import timezone, datetime
-from django.http import HttpResponseNotAllowed
-
+from users.serializers import (
+    LogoutSerializer,
+    NicknameCheckSerializer,
+    UserProfileSerializer,
+)
 
 User = get_user_model()
 
@@ -23,29 +27,40 @@ class SocialLoginView(APIView):
     def post(self, request, provider):
         access_token = request.data.get("access_token")
         if not access_token:
-            return Response({"error": "Access token is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Access token is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user_info = self.get_social_user_info(provider, access_token)
         if not user_info:
-            return Response({"error": "Invalid social token"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid social token"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         user, created = User.objects.get_or_create(
             email=user_info["email"],
             provider=provider,
-            defaults={"nick_name": user_info.get("nick_name"), "profile_img": user_info.get("profile_image")}
+            defaults={
+                "nick_name": user_info.get("nick_name"),
+                "profile_img": user_info.get("profile_image"),
+            },
         )
 
         token = RefreshToken.for_user(user)
-        return Response({
-            "token": str(token.access_token),
-            "user": {
-                "id": user.id,
-                "nick_name": user.nick_name,
-                "email": user.email,
-                "profile_image": user.profile_img.url if user.profile_img else "",
-                "provider": user.provider,
-            }
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "token": str(token.access_token),
+                "user": {
+                    "id": user.id,
+                    "nick_name": user.nick_name,
+                    "email": user.email,
+                    "profile_image": user.profile_img.url if user.profile_img else "",
+                    "provider": user.provider,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def get_social_user_info(self, provider, access_token):
         if provider == "kakao":
@@ -82,6 +97,7 @@ class SocialLoginView(APIView):
                     "profile_image": data.get("picture"),
                 }
         return None
+
 
 class LogoutView(generics.CreateAPIView):
     serializer_class = LogoutSerializer
