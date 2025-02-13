@@ -51,7 +51,6 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-
         # 사용자 정보로 DB 조회 및 저장
         user, created = User.objects.get_or_create(
             email=user_info["email"],
