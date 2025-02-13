@@ -38,6 +38,7 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        logger.debug(f"프론트에서 전달한 인가코드: {auth_code}")
         # 인가 코드를 access_token으로 변환
         access_token = self.get_access_token(provider, auth_code)
         if not access_token:
@@ -45,6 +46,7 @@ class SocialLoginView(APIView):
                 {"error": "Failed to retrieve access token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        logger.debug(f"소셜로그인 API로 받은 액세스토큰: {access_token}")
 
         # access_token을 사용하여 사용자 정보 가져오기
         user_info = self.get_social_user_info(provider, access_token)
@@ -53,6 +55,7 @@ class SocialLoginView(APIView):
                 {"error": "Invalid social token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
 
         # 사용자 정보로 DB 조회 및 저장
         try:
