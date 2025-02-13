@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 class SocialLoginView(APIView):
     permission_classes = (permissions.AllowAny,)
+
     def post(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
         # 프론트에서 받은 인가 코드
@@ -115,11 +116,15 @@ class SocialLoginView(APIView):
 
         try:
             response = requests.post(url, data=data, headers=headers)
-            logger.debug(f"Kakao access token response: {response.status_code} {response.text}")
+            logger.debug(
+                f"Kakao access token response: {response.status_code} {response.text}"
+            )
             if response.status_code == 200:
                 return response.json().get("access_token")
             else:
-                logger.error(f"Kakao access token failed: {response.status_code} - {response.text}")
+                logger.error(
+                    f"Kakao access token failed: {response.status_code} - {response.text}"
+                )
         except Exception as e:
             logger.error(f"Error occurred while getting Kakao access token: {str(e)}")
         return None
