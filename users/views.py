@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 class SocialLoginView(APIView):
+    permission_classes = (permissions.AllowAny,)
+
     def post(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
         # 프론트에서 받은 인가 코드
@@ -81,7 +83,7 @@ class SocialLoginView(APIView):
                 "token": str(token.access_token),
                 "user": {
                     "id": user.id,
-                    "nick_name": user.name,
+                    "nick_name": user.nick_name,
                     "email": user.email,
                     "profile_image": user.profile_img.url if user.profile_img else "",
                     "provider": user.provider,
@@ -119,6 +121,10 @@ class SocialLoginView(APIView):
             )
             if response.status_code == 200:
                 return response.json().get("access_token")
+            else:
+                logger.error(
+                    f"Kakao access token failed: {response.status_code} - {response.text}"
+                )
         except Exception as e:
             logger.error(f"Error occurred while getting Kakao access token: {str(e)}")
         return None
@@ -183,9 +189,10 @@ class SocialLoginView(APIView):
                     data = response.json()
                     return {
                         "email": data["kakao_account"].get("email"),
-                        "nick_name": data["properties"].get("nickname"),
+                        "nick_name": data["properties"].get("nick_name"),
                         "profile_image": data["properties"].get("profile_image"),
                     }
+
             elif provider == "naver":
                 url = "https://openapi.naver.com/v1/nid/me"
                 headers = {"Authorization": f"Bearer {access_token}"}
@@ -197,7 +204,7 @@ class SocialLoginView(APIView):
                     data = response.json()["response"]
                     return {
                         "email": data.get("email"),
-                        "nick_name": data.get("nickname"),
+                        "nick_name": data.get("nick_name"),
                         "profile_image": data.get("profile_image"),
                     }
             elif provider == "google":
