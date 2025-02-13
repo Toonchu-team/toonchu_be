@@ -24,7 +24,7 @@ from users.serializers import (
 
 User = get_user_model()
 
-logger = logging.getLogger("social_login")
+logger = logging.getLogger(__name__)
 
 
 class SocialLoginView(APIView):
