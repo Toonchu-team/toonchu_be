@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 
 import requests
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError
@@ -107,10 +108,10 @@ class SocialLoginView(APIView):
         url = "https://kauth.kakao.com/oauth/token"
         data = {
             "grant_type": "authorization_code",
-            "client_id": "KAKAO_CLIENT_ID",
-            "redirect_uri": "KAKAO_CALLBACK_URL",
+            "client_id": settings.KAKAO_CLIENT_ID,
+            "redirect_uri": settings.KAKAO_REDIRECT_URI,
             "code": auth_code,
-            "client_secret": "KAKAO_CLIENT_SECRET",
+            "client_secret": settings.KAKAO_CLIENT_SECRET,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
@@ -134,8 +135,8 @@ class SocialLoginView(APIView):
         url = "https://nid.naver.com/oauth2.0/token"
         params = {
             "grant_type": "authorization_code",
-            "client_id": "NAVER_CLIENT_ID",
-            "client_secret": "NAVER_CLIENT_SECRET",
+            "client_id": settings.NAVER_CLIENT_ID,
+            "client_secret": settings.NAVER_CLIENT_SECRET,
             "code": auth_code,
             "state": "random_state_string",  # 보안 강화를 위해 사용
         }
@@ -155,9 +156,9 @@ class SocialLoginView(APIView):
         url = "https://oauth2.googleapis.com/token"
         data = {
             "grant_type": "authorization_code",
-            "client_id": "GOOGLE_CLIENT_ID",
-            "client_secret": "GOOGLE_CLIENT_SECRET",
-            "redirect_uri": "GOOGLE_CALLBACK_URL",
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
             "code": auth_code,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
