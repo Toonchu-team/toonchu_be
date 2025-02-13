@@ -41,6 +41,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         ("kakao", "Kakao"),
     ]
 
+
     email = models.EmailField(unique=True, null=False)  # unique=True 제거
     nick_name = models.CharField(max_length=100, unique=True, null=True)
     provider = models.CharField(max_length=50, null=True, blank=True)
