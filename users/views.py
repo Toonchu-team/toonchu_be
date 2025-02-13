@@ -84,7 +84,6 @@ class SocialLoginView(APIView):
             return self.get_google_access_token(auth_code)
         return None
 
-
     def get_kakao_access_token(self, auth_code):
         # 카카오 인가 코드 → Access Token 변환
         url = "https://kauth.kakao.com/oauth/token"
