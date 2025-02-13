@@ -35,12 +35,11 @@ class UserManager(BaseUserManager):
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    PROVIDER_CHOICES = [
-        ("google", "Google"),
-        ("naver", "naver"),
-        ("kakao", "Kakao"),
-    ]
-
+    # PROVIDER_CHOICES = [
+    #     ("google", "Google"),
+    #     ("naver", "naver"),
+    #     ("kakao", "Kakao"),
+    # ]
 
     email = models.EmailField(unique=True, null=False)  # unique=True 제거
     nick_name = models.CharField(max_length=100, unique=True, null=True)
