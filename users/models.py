@@ -35,15 +35,15 @@ class UserManager(BaseUserManager):
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    PROVIDER_CHOICES = [
-        ("google", "Google"),
-        ("naver", "naver"),
-        ("kakao", "Kakao"),
-    ]
+    # PROVIDER_CHOICES = [
+    #     ("google", "Google"),
+    #     ("naver", "naver"),
+    #     ("kakao", "Kakao"),
+    # ]
 
     email = models.EmailField(unique=True, null=False)  # unique=True 제거
     nick_name = models.CharField(max_length=100, unique=True, null=True)
-    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    provider = models.CharField(max_length=50, null=True, blank=True)
     profile_img = models.ImageField(upload_to="profile", blank=True, null=True)
     is_adult = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
