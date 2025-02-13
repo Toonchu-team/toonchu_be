@@ -109,7 +109,7 @@ class SocialLoginView(APIView):
         data = {
             "grant_type": "authorization_code",
             "client_id": settings.KAKAO_CLIENT_ID,
-            "redirect_uri": settings.KAKAO_REDIRECT_URI,
+            "redirect_uri": settings.KAKAO_CALLBACK_URL,
             "code": auth_code,
             "client_secret": settings.KAKAO_CLIENT_SECRET,
         }
@@ -158,7 +158,7 @@ class SocialLoginView(APIView):
             "grant_type": "authorization_code",
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
-            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            "redirect_uri": settings.GOOGLE_CALLBACK_URL,
             "code": auth_code,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
