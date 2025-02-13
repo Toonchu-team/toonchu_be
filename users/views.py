@@ -29,6 +29,7 @@ logger = logging.getLogger("social_login")
 
 class SocialLoginView(APIView):
     def post(self, request, provider):
+        logger.debug(f"소셜로그인 요청 시 로그: {provider}")
         # 프론트에서 받은 인가 코드
         auth_code = request.data.get("code")
         if not auth_code:
@@ -59,7 +60,7 @@ class SocialLoginView(APIView):
                 email=user_info["email"],
                 provider=provider,
                 defaults={
-                    "nick_name": user_info.get("nick_name"),
+                    "nick_name": user_info.get("name"),
                     "profile_img": user_info.get("profile_image"),
                 },
             )
@@ -77,7 +78,7 @@ class SocialLoginView(APIView):
                 "token": str(token.access_token),
                 "user": {
                     "id": user.id,
-                    "nick_name": user.nick_name,
+                    "nick_name": user.name,
                     "email": user.email,
                     "profile_image": user.profile_img.url if user.profile_img else "",
                     "provider": user.provider,
