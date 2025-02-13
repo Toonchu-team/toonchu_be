@@ -81,7 +81,8 @@ class SocialLoginView(APIView):
         token = RefreshToken.for_user(user)
         return Response(
             {
-                "token": str(token.access_token),
+                "access_token": str(token.access_token),
+                "refresh_token": str(token),
                 "user": {
                     "id": user.id,
                     "nick_name": user.nick_name,
