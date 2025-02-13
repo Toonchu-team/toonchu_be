@@ -3,6 +3,8 @@ from django.urls import path
 
 from .views import (  # GoogleCallbackView,; GoogleLoginView,; KakaoCallbackView,; KakaoLoginView,; LogoutView,; NaverCallbackView,; NaverLoginView,; UserProfileView,; UserWithdrawView,
     SocialLoginView,
+    UserProfileView,
+    UserWithdrawView,
 )
 
 urlpatterns = [
@@ -17,6 +19,6 @@ urlpatterns = [
     # User Management URLs
     path("login/<str:provider>/", SocialLoginView.as_view(), name="social_login"),
     path("me/logout/", LogoutView.as_view(), name="logout"),
-    # path("me/profile/update/", UserProfileView.as_view(), name="profile-update"),
-    # path("me/profile/withdraw/", UserWithdrawView.as_view(), name="profile-withdraw"),
+    path("me/profile/update/", UserProfileView.as_view(), name="profile-update"),
+    path("me/profile/withdraw/", UserWithdrawView.as_view(), name="profile-withdraw"),
 ]
