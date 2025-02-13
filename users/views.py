@@ -25,19 +25,30 @@ User = get_user_model()
 
 class SocialLoginView(APIView):
     def post(self, request, provider):
-        access_token = request.data.get("access_token")
-        if not access_token:
+        auth_code = request.data.get("auth_code")  # 프론트에서 받은 인가 코드
+        if not auth_code:
             return Response(
-                {"error": "Access token is required"},
+                {"error": "Authorization code is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # 인가 코드를 access_token으로 변환
+        access_token = self.get_access_token(provider, auth_code)
+        if not access_token:
+            return Response(
+                {"error": "Failed to retrieve access token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # access_token을 사용하여 사용자 정보 가져오기
         user_info = self.get_social_user_info(provider, access_token)
         if not user_info:
             return Response(
-                {"error": "Invalid social token"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Invalid social token"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # 사용자 정보로 DB 조회 및 저장
         user, created = User.objects.get_or_create(
             email=user_info["email"],
             provider=provider,
@@ -47,6 +58,7 @@ class SocialLoginView(APIView):
             },
         )
 
+        # JWT 토큰 생성
         token = RefreshToken.for_user(user)
         return Response(
             {
@@ -62,7 +74,68 @@ class SocialLoginView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    def get_access_token(self, provider, auth_code):
+        # 인가 코드로 access token 요청
+        if provider == "kakao":
+            return self.get_kakao_access_token(auth_code)
+        elif provider == "naver":
+            return self.get_naver_access_token(auth_code)
+        elif provider == "google":
+            return self.get_google_access_token(auth_code)
+        return None
+
+    def get_kakao_access_token(self, auth_code):
+        # 카카오 인가 코드 → Access Token 변환
+        url = "https://kauth.kakao.com/oauth/token"
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": "KAKAO_CLIENT_ID",
+            "redirect_uri": "KAKAO_CALLBACK_URL",
+            "code": auth_code,
+            "client_secret": "KAKAO_CLIENT_SECRET",
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        response = requests.post(url, data=data, headers=headers)
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        return None
+
+    def get_naver_access_token(self, auth_code):
+        # 네이버 인가 코드 → Access Token 변환
+        url = "https://nid.naver.com/oauth2.0/token"
+        params = {
+            "grant_type": "authorization_code",
+            "client_id": "NAVER_CLIENT_ID",
+            "client_secret": "NAVER_CLIENT_SECRET",
+            "code": auth_code,
+            "state": "random_state_string",  # 보안 강화를 위해 사용
+        }
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        return None
+
+    def get_google_access_token(self, auth_code):
+        # 구글 인가 코드 → Access Token 변환
+        url = "https://oauth2.googleapis.com/token"
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": "GOOGLE_CLIENT_ID",
+            "client_secret": "GOOGLE_CLIENT_SECRET",
+            "redirect_uri": "GOOGLE_CALLBACK_URL",
+            "code": auth_code,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        response = requests.post(url, data=data, headers=headers)
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        return None
+
     def get_social_user_info(self, provider, access_token):
+
+        # access_token -> 소셜 사용자 정보 가져오기
         if provider == "kakao":
             url = "https://kapi.kakao.com/v2/user/me"
             headers = {"Authorization": f"Bearer {access_token}"}
