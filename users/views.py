@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import requests
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
@@ -23,12 +24,13 @@ from users.serializers import (
 
 User = get_user_model()
 
-# logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class SocialLoginView(APIView):
     def post(self, request, provider):
-        auth_code = request.data.get("code")  # 프론트에서 받은 인가 코드
+        # 프론트에서 받은 인가 코드
+        auth_code = request.data.get("code")
         if not auth_code:
             return Response(
                 {"error": "Authorization code is required"},
@@ -52,14 +54,21 @@ class SocialLoginView(APIView):
             )
 
         # 사용자 정보로 DB 조회 및 저장
-        user, created = User.objects.get_or_create(
-            email=user_info["email"],
-            provider=provider,
-            defaults={
-                "nick_name": user_info.get("nick_name"),
-                "profile_img": user_info.get("profile_image"),
-            },
-        )
+        try:
+            user, created = User.objects.get_or_create(
+                email=user_info["email"],
+                provider=provider,
+                defaults={
+                    "nick_name": user_info.get("nick_name"),
+                    "profile_img": user_info.get("profile_image"),
+                },
+            )
+        except IntegrityError as e:
+            logger.error(f"IntegrityError occurred: {str(e)}")
+            return Response(
+                {"error": "User already exists or database constraint violated"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # JWT 토큰 생성
         token = RefreshToken.for_user(user)
@@ -99,9 +108,15 @@ class SocialLoginView(APIView):
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        response = requests.post(url, data=data, headers=headers)
-        if response.status_code == 200:
-            return response.json().get("access_token")
+        try:
+            response = requests.post(url, data=data, headers=headers)
+            logger.debug(
+                f"Kakao access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+        except Exception as e:
+            logger.error(f"Error occurred while getting Kakao access token: {str(e)}")
         return None
 
     def get_naver_access_token(self, auth_code):
@@ -114,9 +129,15 @@ class SocialLoginView(APIView):
             "code": auth_code,
             "state": "random_state_string",  # 보안 강화를 위해 사용
         }
-        response = requests.get(url, params=params)
-        if response.status_code == 200:
-            return response.json().get("access_token")
+        try:
+            response = requests.get(url, params=params)
+            logger.debug(
+                f"Naver access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+        except Exception as e:
+            logger.error(f"Error occurred while getting Naver access token: {str(e)}")
         return None
 
     def get_google_access_token(self, auth_code):
@@ -131,47 +152,69 @@ class SocialLoginView(APIView):
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        response = requests.post(url, data=data, headers=headers)
-        if response.status_code == 200:
-            return response.json().get("access_token")
+        try:
+            response = requests.post(url, data=data, headers=headers)
+            logger.debug(
+                f"Google access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+        except Exception as e:
+            logger.error(f"Error occurred while getting Google access token: {str(e)}")
         return None
 
     def get_social_user_info(self, provider, access_token):
+        logger.debug(f"Getting user info for provider: {provider}")
 
         # access_token -> 소셜 사용자 정보 가져오기
-        if provider == "kakao":
-            url = "https://kapi.kakao.com/v2/user/me"
-            headers = {"Authorization": f"Bearer {access_token}"}
-            response = requests.get(url, headers=headers)
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    "email": data["kakao_account"].get("email"),
-                    "nick_name": data["properties"].get("nickname"),
-                    "profile_image": data["properties"].get("profile_image"),
-                }
-        elif provider == "naver":
-            url = "https://openapi.naver.com/v1/nid/me"
-            headers = {"Authorization": f"Bearer {access_token}"}
-            response = requests.get(url, headers=headers)
-            if response.status_code == 200:
-                data = response.json()["response"]
-                return {
-                    "email": data.get("email"),
-                    "nick_name": data.get("nickname"),
-                    "profile_image": data.get("profile_image"),
-                }
-        elif provider == "google":
-            url = "https://www.googleapis.com/oauth2/v3/userinfo"
-            headers = {"Authorization": f"Bearer {access_token}"}
-            response = requests.get(url, headers=headers)
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    "email": data.get("email"),
-                    "nick_name": data.get("name"),
-                    "profile_image": data.get("picture"),
-                }
+        try:
+            if provider == "kakao":
+                url = "https://kapi.kakao.com/v2/user/me"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Kakao API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "email": data["kakao_account"].get("email"),
+                        "nick_name": data["properties"].get("nickname"),
+                        "profile_image": data["properties"].get("profile_image"),
+                    }
+            elif provider == "naver":
+                url = "https://openapi.naver.com/v1/nid/me"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Naver API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()["response"]
+                    return {
+                        "email": data.get("email"),
+                        "nick_name": data.get("nickname"),
+                        "profile_image": data.get("profile_image"),
+                    }
+            elif provider == "google":
+                url = "https://www.googleapis.com/oauth2/v3/userinfo"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Google API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "email": data.get("email"),
+                        "nick_name": data.get("name"),
+                        "profile_image": data.get("picture"),
+                    }
+        except Exception as e:
+            logger.error(
+                f"Error occurred while fetching user info from {provider}: {str(e)}"
+            )
+
         return None
 
 
