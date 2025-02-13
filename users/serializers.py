@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MaxLengthValidator, MinLengthValidator
 from rest_framework import serializers
 
+from users.models import CustomUser
+
 User = get_user_model()
 
 
@@ -9,6 +11,22 @@ class SocialLoginSerializer(serializers.Serializer):
     code = serializers.CharField(
         required=True, error_messages={"required": "OAuth 인증 코드가 필요합니다."}
     )
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = [
+            "id",
+            "email",
+            "nick_name",
+            "profile_img",
+            "provider",
+            "is_adult",
+            "is_created",
+            "is_updated",
+        ]
+        read_only_fields = ["id", "provider", "is_adult", "is_created"]
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

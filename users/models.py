@@ -41,11 +41,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         ("kakao", "Kakao"),
     ]
 
-    email = models.EmailField(null=False)  # unique=True 제거
-    nick_name = models.CharField(max_length=100, unique=True)
-    provider = models.CharField(
-        max_length=20, choices=PROVIDER_CHOICES, null=True, blank=True
-    )
+    email = models.EmailField(unique=True, null=False)  # unique=True 제거
+    nick_name = models.CharField(max_length=100, unique=True, null=True)
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
     profile_img = models.ImageField(upload_to="profile", blank=True, null=True)
     is_adult = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
@@ -66,6 +64,3 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
-
-    def set_un_user_password(self):
-        self.set_unusable_password()
