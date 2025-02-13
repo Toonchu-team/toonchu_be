@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timezone
 
@@ -22,10 +23,12 @@ from users.serializers import (
 
 User = get_user_model()
 
+# logger = logging.getLogger(__name__)
+
 
 class SocialLoginView(APIView):
     def post(self, request, provider):
-        auth_code = request.data.get("auth_code")  # 프론트에서 받은 인가 코드
+        auth_code = request.data.get("code")  # 프론트에서 받은 인가 코드
         if not auth_code:
             return Response(
                 {"error": "Authorization code is required"},
