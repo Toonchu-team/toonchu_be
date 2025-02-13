@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 
 import requests
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError
@@ -28,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 class SocialLoginView(APIView):
+    permission_classes = (permissions.AllowAny,)
+
     def post(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
         # 프론트에서 받은 인가 코드
@@ -81,7 +84,7 @@ class SocialLoginView(APIView):
                 "token": str(token.access_token),
                 "user": {
                     "id": user.id,
-                    "nick_name": user.name,
+                    "nick_name": user.nick_name,
                     "email": user.email,
                     "profile_image": user.profile_img.url if user.profile_img else "",
                     "provider": user.provider,
@@ -105,10 +108,10 @@ class SocialLoginView(APIView):
         url = "https://kauth.kakao.com/oauth/token"
         data = {
             "grant_type": "authorization_code",
-            "client_id": "KAKAO_CLIENT_ID",
-            "redirect_uri": "KAKAO_CALLBACK_URL",
+            "client_id": settings.KAKAO_CLIENT_ID,
+            "redirect_uri": settings.KAKAO_CALLBACK_URL,
             "code": auth_code,
-            "client_secret": "KAKAO_CLIENT_SECRET",
+            "client_secret": settings.KAKAO_CLIENT_SECRET,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
@@ -119,6 +122,10 @@ class SocialLoginView(APIView):
             )
             if response.status_code == 200:
                 return response.json().get("access_token")
+            else:
+                logger.error(
+                    f"Kakao access token failed: {response.status_code} - {response.text}"
+                )
         except Exception as e:
             logger.error(f"Error occurred while getting Kakao access token: {str(e)}")
         return None
@@ -128,8 +135,8 @@ class SocialLoginView(APIView):
         url = "https://nid.naver.com/oauth2.0/token"
         params = {
             "grant_type": "authorization_code",
-            "client_id": "NAVER_CLIENT_ID",
-            "client_secret": "NAVER_CLIENT_SECRET",
+            "client_id": settings.NAVER_CLIENT_ID,
+            "client_secret": settings.NAVER_CLIENT_SECRET,
             "code": auth_code,
             "state": "random_state_string",  # 보안 강화를 위해 사용
         }
@@ -149,9 +156,9 @@ class SocialLoginView(APIView):
         url = "https://oauth2.googleapis.com/token"
         data = {
             "grant_type": "authorization_code",
-            "client_id": "GOOGLE_CLIENT_ID",
-            "client_secret": "GOOGLE_CLIENT_SECRET",
-            "redirect_uri": "GOOGLE_CALLBACK_URL",
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": settings.GOOGLE_CALLBACK_URL,
             "code": auth_code,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -183,9 +190,10 @@ class SocialLoginView(APIView):
                     data = response.json()
                     return {
                         "email": data["kakao_account"].get("email"),
-                        "nick_name": data["properties"].get("nickname"),
+                        "nick_name": data["properties"].get("nick_name"),
                         "profile_image": data["properties"].get("profile_image"),
                     }
+
             elif provider == "naver":
                 url = "https://openapi.naver.com/v1/nid/me"
                 headers = {"Authorization": f"Bearer {access_token}"}
@@ -197,7 +205,7 @@ class SocialLoginView(APIView):
                     data = response.json()["response"]
                     return {
                         "email": data.get("email"),
-                        "nick_name": data.get("nickname"),
+                        "nick_name": data.get("nick_name"),
                         "profile_image": data.get("profile_image"),
                     }
             elif provider == "google":
