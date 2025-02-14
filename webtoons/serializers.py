@@ -4,40 +4,21 @@ from rest_framework import serializers
 from webtoons.models import Tag, Webtoon, WebtoonTag
 
 
-@extend_schema_serializer(
-    examples=[
-        OpenApiExample(
-            "Successful Creation",
-            value={
-                "id": 1,
-                "title": "프론트개발자의 일상",
-                "author": "감자전",
-                "thumnail_url": "https://example.com/thumbnail.jpg",
-                "description": "감자 같은 내 코드 and 프론트의 일상을 담은 이야기",
-                "url": "https://webtoon-platform.com/webtoon/1",
-                "platform": "네이버",
-                "publication_day": "2025-02-10",
-                "serial_day": "월요일,목요일",
-                "serialization_cycle": "1주",
-            },
-            response_only=True,
-            status_codes=["201"],
-        ),
-        OpenApiExample(
-            "Bad Request",
-            value={
-                "massage": "Invalid input data",
-            },
-            response_only=True,
-            status_codes=["400"],
-        ),
-    ]
-)
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
-        fields = "__all__"
+        fields = ["id", "tag_name", "category"]
 
+class WebtoonSearchSerializer(serializers.ModelSerializer):
+    tags = TagSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Webtoon
+        fields = [
+            "id", "title", "author", "thumbnail", "platform", "tags"
+        ]
+    def get_tags(self, obj):
+        return TagSerializer(obj.webtoon_tags.all().values("tag"), many=True).data
 
 class WebtoonTagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -63,6 +44,35 @@ class WebtoonsSerializer(serializers.ModelSerializer):
             "updated_at",
             "tags",
         ]
+
+    @extend_schema_serializer(
+        examples=[
+            OpenApiExample(
+                "Successful Creation",
+                value={
+                    "id": 1,
+                    "title": "프론트개발자의 일상",
+                    "author": "감자전",
+                    "thumnail_url": "https://example.com/thumbnail.jpg",
+                    "url": "https://webtoon-platform.com/webtoon/1",
+                    "platform": "네이버",
+                    "publication_day": "2025-02-10",
+                    "serial_day": "월요일,목요일",
+                    "serialization_cycle": "1주",
+                },
+                response_only=True,
+                status_codes=["201"],
+            ),
+            OpenApiExample(
+                "Bad Request",
+                value={
+                    "massage": "Invalid input data",
+                },
+                response_only=True,
+                status_codes=["400"],
+            ),
+        ]
+    )
 
     def create(self, validated_data):
         tags = validated_data.pop("tags", [])
@@ -99,7 +109,6 @@ class WebtoonsSerializer(serializers.ModelSerializer):
         tags = [webtoon_tag.tag for webtoon_tag in instance.webtoon_tags.all()]
         data["tags"] = TagSerializer(tags, many=True).data
         return data
-
 
 class ErrorResponseSerializer(serializers.Serializer):
     message = serializers.CharField()

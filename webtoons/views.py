@@ -3,7 +3,8 @@ import os
 from copy import deepcopy
 
 import requests
-from drf_spectacular.utils import OpenApiResponse, OpenApiTypes, extend_schema
+from django.db.models import Q
+from drf_spectacular.utils import OpenApiResponse, OpenApiTypes, extend_schema, OpenApiParameter
 from rest_framework import permissions, status
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
@@ -13,11 +14,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .models import Webtoon
 from .serializers import (
     ErrorResponseSerializer,
     TagSerializer,
     WebtoonsSerializer,
     WebtoonTagSerializer,
+    WebtoonSearchSerializer,
 )
 
 
@@ -46,3 +49,51 @@ class WebtoonView(CreateAPIView):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
+
+    def get(self, request):
+        webtoons = Webtoon.objects.all()
+        serializer = WebtoonsSerializer(webtoons, many=True)
+        return Response(serializer.data)
+
+class WebtoonSearchView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="provider", description='웹툰 플랫폼', type=str),
+            OpenApiParameter(name="tag", description="웹툰 태그", type=str),
+            OpenApiParameter(name="term", description="검색어", type=str),
+        ],
+        summary="웹툰 검색",
+        description="웹툰 검색 api입니다.",
+        tags=["Webtoons Search"],
+        request=WebtoonSearchSerializer,
+        responses={
+            200: WebtoonSearchSerializer (many=True),
+            400: OpenApiTypes.OBJECT,
+        },
+    )
+
+    def get(self, request):
+        provider = request.query_params.get("provider", "")
+        tags = request.query_params.getlist("tag")
+        term = request.query_params.get("term", "")
+
+        queryset = Webtoon.objects.all()
+
+        if provider:
+            queryset = queryset.filter(platform=provider) #platform__iexact 사용 유무(정확할 일치가 필요 할지)
+
+        if tags:
+            queryset = queryset.filter(webtoon_tags__tag__tag_name__in=tags).distinct()
+
+        if term:
+            queryset = queryset.filter(
+                Q(title__icontains=term) |
+                Q(author__icontains=term)
+            )
+
+        queryset = queryset.prefetch_related('webtoon_tags__tag')
+
+        serializer = WebtoonSearchSerializer(queryset, many=True)
+        return Response(serializer.data)
