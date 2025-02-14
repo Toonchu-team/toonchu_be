@@ -1,361 +1,234 @@
-import datetime
-import json
 import logging
 import os
-import uuid
-from abc import abstractmethod
+from datetime import datetime, timezone
 
 import requests
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed
-from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, OpenApiTypes, extend_schema
-from rest_framework import generics, permissions, request, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from rest_framework import generics, permissions, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CustomUser
-from .oauth_mixins import (
-    GoogleProviderInfoMixin,
-    KaKaoProviderInfoMixin,
-    NaverProviderInfoMixin,
-)
-from .serializers import (
+from users.serializers import (
     LogoutSerializer,
     NicknameCheckSerializer,
-    SocialLoginSerializer,
     UserProfileSerializer,
 )
 
-logger = logging.getLogger(__name__)
-
 User = get_user_model()
 
-
-class BaseSocialLoginView(generics.RetrieveAPIView):
-    permission_classes = [AllowAny]
-
-    @abstractmethod
-    def get_provider_info(self):
-        pass
-
-    @extend_schema(
-        summary="소셜 로그인 URL 요청",
-        description="소셜 로그인을 위한 인증 URL을 반환합니다.",
-        responses={200: OpenApiTypes.OBJECT},
-    )
-    def retrieve(self, request, *args, **kwargs):
-        provider_info = self.get_provider_info()
-
-        if provider_info["name"] == "구글":
-            auth_url = (
-                f"{provider_info['authorization_url']}"
-                f"?response_type=code"
-                f"&client_id={provider_info['client_id']}"
-                f"&redirect_uri={provider_info['callback_url']}"
-                f"&scope=email%20profile"
-                f"&access_type=offline"
-            )
-        else:
-            auth_url = (
-                f"{provider_info['authorization_url']}"
-                f"&client_id={provider_info['client_id']}"
-                f"&redirect_uri={provider_info['callback_url']}"
-            )
-
-        return Response({"auth_url": auth_url})
+logger = logging.getLogger(__name__)
 
 
-class KakaoLoginView(KaKaoProviderInfoMixin, BaseSocialLoginView):
-    serializer_class = SocialLoginSerializer
+class SocialLoginView(APIView):
+    permission_classes = (permissions.AllowAny,)
 
-    @extend_schema(
-        summary="카카오 로그인 URL 요청",
-        description="카카오 로그인을 위한 인증 URL을 반환합니다.",
-        tags=["Kakao Social"],
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-
-class GoogleLoginView(GoogleProviderInfoMixin, BaseSocialLoginView):
-    serializer_class = SocialLoginSerializer
-
-    @extend_schema(
-        summary="구글 로그인 URL 요청",
-        description="구글 로그인을 위한 인증 URL을 반환합니다.",
-        responses={200: OpenApiResponse(response={"auth_url": "string"})},
-        tags=["Google Social"],
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-
-class NaverLoginView(NaverProviderInfoMixin, BaseSocialLoginView):
-    serializer_class = SocialLoginSerializer
-
-    @extend_schema(
-        summary="네이버 로그인 URL 요청",
-        description="네이버 로그인을 위한 인증 URL을 반환합니다.",
-        tags=["Naver Social"],
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-
-class OAuthCallbackView(generics.CreateAPIView):
-    permission_classes = [AllowAny]
-    serializer_class = SocialLoginSerializer
-
-    def create(self, request, *args, **kwargs):
-        # 🔥 1. 들어온 요청 데이터 확인
-        print(f"📩 request.data: {request.data}")
-        logger.debug(f"📩 request.data: {request.data}")
-
-        # 🔥 2. 원본 요청 바디 확인 (혹시 JSON 파싱이 안 되는지 체크)
-        try:
-            raw_body = request.body.decode("utf-8")  # 바이너리 데이터를 문자열로 변환
-            json_body = json.loads(raw_body)  # JSON 형식이면 파싱
-            print(f"Raw JSON Payload: {json_body}")
-            logger.debug(f"Raw JSON Payload: {json_body}")
-        except json.JSONDecodeError:
-            print("요청 바디가 JSON이 아닙니다.")
-            logger.debug("요청 바디가 JSON이 아닙니다.")
-
-        # 🔥 3. serializer 유효성 검사 진행
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            # 🔥 4. 인가 코드가 정상적으로 들어왔는지 확인
-            code = serializer.validated_data.get("code")
-            print(f"💡 받은 인가 코드: {code}")
-            logger.debug(f"💡 받은 인가 코드: {code}")
-
-            # ✅ 5. 인가 코드로 access_token 요청
-            provider_info = self.get_provider_info()
-            token_response = self.get_token(code, provider_info)
-
-            if token_response.status_code != status.HTTP_200_OK:
-                logger.error(
-                    f"{provider_info['name']} 토큰 요청 실패: {token_response.text}"
-                )
-                return Response(
-                    {
-                        "msg": f"{provider_info['name']} 서버에서 토큰을 가져올 수 없습니다."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            access_token = token_response.json().get("access_token")
-            if not access_token:
-                logger.error(
-                    f"{provider_info['name']} 응답에서 access_token 없음: {token_response.json()}"
-                )
-                return Response(
-                    {"msg": "엑세스 토큰을 찾을 수 없습니다."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            logger.debug(f"🔑 발급된 access_token: {access_token}")
-
-            # ✅ 6. access_token을 사용하여 사용자 프로필 정보 요청
-            profile_response = self.get_profile(access_token, provider_info)
-            if profile_response.status_code != status.HTTP_200_OK:
-                logger.error(
-                    f"{provider_info['name']} 프로필 요청 실패: {profile_response.text}"
-                )
-                return Response(
-                    {
-                        "msg": f"{provider_info['name']} 서버에서 사용자 정보를 가져올 수 없습니다."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            user_data = profile_response.json()
-            logger.debug(f"사용자 정보: {user_data}")
-
-            # 7. 로그인 또는 회원가입 처리
-            return self.login_process_user(request, user_data, provider_info)
-        else:
-            print(f"Serializer validation failed: {serializer.errors}")
-            logger.debug(f"Serializer validation failed: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def get_provider_info(self):
-        """
-        각 OAuth 공급자에 대한 정보를 제공해야 합니다.
-        하위 클래스에서 반드시 구현해야 합니다.
-        """
-        raise NotImplementedError
-
-    def get_token(self, code, provider_info):
-        """
-        인가 코드를 사용해 access_token을 요청하는 함수
-        """
-        token_url = provider_info["token_url"]
-        client_id = provider_info["client_id"]
-        client_secret = provider_info["client_secret"]
-        redirect_uri = provider_info["redirect_uri"]
-
-        data = {
-            "grant_type": "authorization_code",
-            "code": code,
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": redirect_uri,
-        }
-
-        response = requests.post(
-            token_url,
-            data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        return response
-
-    def get_profile(self, access_token, provider_info):
-        """
-        access_token을 사용하여 사용자 프로필을 요청하는 함수
-        """
-        profile_url = provider_info["profile_url"]
-        headers = {"Authorization": f"Bearer {access_token}"}
-
-        response = requests.get(profile_url, headers=headers)
-        return response
-
-    def login_process_user(self, request, profile_data, provider_info):
-        """
-        로그인 또는 회원가입 처리
-        """
-        email = profile_data.get("email")
-        if not email:
+    def post(self, request, provider):
+        logger.debug(f"소셜로그인 요청 시 로그: {provider}")
+        # 프론트에서 받은 인가 코드
+        auth_code = request.data.get("code")
+        if not auth_code:
             return Response(
-                {"msg": "이메일 정보가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Authorization code is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "nick_name": profile_data.get("nickname")
-                or f"User_{uuid.uuid4().hex[:6]}",  # 랜덤 닉네임 생성
-                "profile_img": profile_data.get("profile_image"),
-                "social_provider": provider_info["name"].lower(),
-            },
-        )
+        logger.debug(f"프론트에서 전달한 인가코드: {auth_code}")
+        # 인가 코드를 access_token으로 변환
+        access_token = self.get_access_token(provider, auth_code)
+        if not access_token:
+            return Response(
+                {"error": "Failed to retrieve access token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        logger.debug(f"소셜로그인 API로 받은 액세스토큰: {access_token}")
 
-        refresh = RefreshToken.for_user(user)
+        # access_token을 사용하여 사용자 정보 가져오기
+        user_info = self.get_social_user_info(provider, access_token)
+        if not user_info:
+            return Response(
+                {"error": "Invalid social token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
+
+        # 사용자 정보로 DB 조회 및 저장
+        try:
+            user, created = User.objects.get_or_create(
+                email=user_info["email"],
+                provider=provider,
+                defaults={
+                    "nick_name": user_info.get("name"),
+                    "profile_img": user_info.get("profile_image"),
+                },
+            )
+        except IntegrityError as e:
+            logger.error(f"IntegrityError occurred: {str(e)}")
+            return Response(
+                {"error": "User already exists or database constraint violated"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # JWT 토큰 생성
+        token = RefreshToken.for_user(user)
         return Response(
             {
-                "access_token": str(refresh.access_token),
-                "refresh_token": str(
-                    refresh
-                ),  # 클라이언트가 refresh token을 저장할 수 있도록 추가
+                "access_token": str(token.access_token),
+                "refresh_token": str(token),
                 "user": {
                     "id": user.id,
                     "nick_name": user.nick_name,
                     "email": user.email,
-                    "profile_image": user.profile_img,
-                    "provider": provider_info["name"].lower(),
+                    "profile_image": user.profile_img.url if user.profile_img else "",
+                    "provider": user.provider,
                 },
             },
             status=status.HTTP_200_OK,
         )
 
+    def get_access_token(self, provider, auth_code):
+        # 인가 코드로 access token 요청
+        if provider == "kakao":
+            return self.get_kakao_access_token(auth_code)
+        elif provider == "naver":
+            return self.get_naver_access_token(auth_code)
+        elif provider == "google":
+            return self.get_google_access_token(auth_code)
+        return None
 
-class KakaoCallbackView(KaKaoProviderInfoMixin, OAuthCallbackView):
-    @extend_schema(
-        summary="카카오 OAuth 콜백",
-        description="카카오 소셜 로그인 콜백을 처리합니다.",
-        tags=["Kakao Social"],
-    )
-    def get_token(self, code, provider_info):
-        token_url = provider_info["token_url"]
-        client_id = provider_info["client_id"]
-        client_secret = provider_info["client_secret"]
-        callback_url = provider_info["callback_url"]
-
+    def get_kakao_access_token(self, auth_code):
+        # 카카오 인가 코드 → Access Token 변환
+        url = "https://kauth.kakao.com/oauth/token"
         data = {
             "grant_type": "authorization_code",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": callback_url,
-            "code": code,
+            "client_id": settings.KAKAO_CLIENT_ID,
+            "redirect_uri": settings.KAKAO_CALLBACK_URL,
+            "code": auth_code,
+            "client_secret": settings.KAKAO_CLIENT_SECRET,
         }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        def login_process_user(self, request, profile_data, provider_info):
-            mock_data = {
-                "token": "xxxxxxxxxxxxxxxxxxx",
-                "user": {
-                    "id": 1234,
-                    "nick_name": "xxxxx",
-                    "email": "xxxxxxx@example.com",
-                    "profile_image": "https://xxxxxxxx.com/profile.jpg",
-                    "provider": provider_info.get("name", "unknown"),
-                },
-            }
+        try:
+            response = requests.post(url, data=data, headers=headers)
+            logger.debug(
+                f"Kakao access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+            else:
+                logger.error(
+                    f"Kakao access token failed: {response.status_code} - {response.text}"
+                )
+        except Exception as e:
+            logger.error(f"Error occurred while getting Kakao access token: {str(e)}")
+        return None
 
-        return requests.post(token_url, data=data)
+    def get_naver_access_token(self, auth_code):
+        # 네이버 인가 코드 → Access Token 변환
+        url = "https://nid.naver.com/oauth2.0/token"
+        params = {
+            "grant_type": "authorization_code",
+            "client_id": settings.NAVER_CLIENT_ID,
+            "client_secret": settings.NAVER_CLIENT_SECRET,
+            "code": auth_code,
+            "state": "random_state_string",  # 보안 강화를 위해 사용
+        }
+        try:
+            response = requests.get(url, params=params)
+            logger.debug(
+                f"Naver access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+        except Exception as e:
+            logger.error(f"Error occurred while getting Naver access token: {str(e)}")
+        return None
 
-    def get_profile(self, access_token, provider_info):
-        profile_url = provider_info["profile_url"]
-        headers = {"Authorization": f"Bearer {access_token}"}
-        return requests.get(profile_url, headers=headers)
-
-
-class GoogleCallbackView(GoogleProviderInfoMixin, OAuthCallbackView):
-    @extend_schema(
-        summary="구글 OAuth 콜백",
-        description="구글 소셜 로그인 콜백을 처리합니다.",
-        tags=["Google Social"],
-    )
-    def get_token(self, code, provider_info):
-        token_url = provider_info["token_url"]
-        client_id = provider_info["client_id"]
-        client_secret = provider_info["client_secret"]
-        callback_url = provider_info["callback_url"]
-
+    def get_google_access_token(self, auth_code):
+        # 구글 인가 코드 → Access Token 변환
+        url = "https://oauth2.googleapis.com/token"
         data = {
             "grant_type": "authorization_code",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": callback_url,
-            "code": code,
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": settings.GOOGLE_CALLBACK_URL,
+            "code": auth_code,
         }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        return requests.post(token_url, data=data)
+        try:
+            response = requests.post(url, data=data, headers=headers)
+            logger.debug(
+                f"Google access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+        except Exception as e:
+            logger.error(f"Error occurred while getting Google access token: {str(e)}")
+        return None
 
-    def get_profile(self, access_token, provider_info):
-        profile_url = provider_info["profile_url"]
-        headers = {"Authorization": f"Bearer {access_token}"}
-        return requests.get(profile_url, headers=headers)
+    def get_social_user_info(self, provider, access_token):
+        logger.debug(f"Getting user info for provider: {provider}")
 
+        # access_token -> 소셜 사용자 정보 가져오기
+        try:
+            if provider == "kakao":
+                url = "https://kapi.kakao.com/v2/user/me"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Kakao API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "email": data["kakao_account"].get("email"),
+                        "nick_name": data["properties"].get("nick_name"),
+                        "profile_image": data["properties"].get("profile_image"),
+                    }
 
-class NaverCallbackView(NaverProviderInfoMixin, OAuthCallbackView):
-    @extend_schema(
-        summary="네이버 OAuth 콜백",
-        description="네이버 소셜 로그인 콜백을 처리합니다.",
-        tags=["Naver Social"],
-    )
-    def get_token(self, code, provider_info):
-        token_url = provider_info["token_url"]
-        client_id = provider_info["client_id"]
-        client_secret = provider_info["client_secret"]
-        callback_url = provider_info["callback_url"]
+            elif provider == "naver":
+                url = "https://openapi.naver.com/v1/nid/me"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Naver API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()["response"]
+                    return {
+                        "email": data.get("email"),
+                        "nick_name": data.get("nick_name"),
+                        "profile_image": data.get("profile_image"),
+                    }
+            elif provider == "google":
+                url = "https://www.googleapis.com/oauth2/v3/userinfo"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Google API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "email": data.get("email"),
+                        "nick_name": data.get("name"),
+                        "profile_image": data.get("picture"),
+                    }
+        except Exception as e:
+            logger.error(
+                f"Error occurred while fetching user info from {provider}: {str(e)}"
+            )
 
-        data = {
-            "grant_type": "authorization_code",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": callback_url,
-            "code": code,
-            "state": "YOUR_STATE_VALUE",  # 필요한 경우 state 값 추가
-        }
-
-        return requests.post(token_url, data=data)
-
-    def get_profile(self, access_token, provider_info):
-        profile_url = provider_info["profile_url"]
-        headers = {"Authorization": f"Bearer {access_token}"}
-        return requests.get(profile_url, headers=headers)
+        return None
 
 
 class LogoutView(generics.CreateAPIView):
@@ -475,7 +348,8 @@ class UserWithdrawView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user.withdraw_at = timezone.now()
+        # user.withdraw_at = timezone.now() # 해당필드가 없어서 주석처리함
+
         delete_date = timezone.now() + datetime.timedelta(days=50)
         user.is_active = False
         user.save()

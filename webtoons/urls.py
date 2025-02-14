@@ -1,7 +1,8 @@
 from django.urls import path
 
-from .views import WebtoonView
+from .views import WebtoonSearchView, WebtoonView
 
 urlpatterns = [
-    path("request/", WebtoonView.as_view(), name="webtoons-post"),
+    path("", WebtoonView.as_view(), name="webtoons-post"),
+    path("search", WebtoonSearchView.as_view(), name="webtoons-search"),
 ]
