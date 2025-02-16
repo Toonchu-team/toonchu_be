@@ -1,4 +1,4 @@
-from rest_framework import status, generics
+from rest_framework import generics, status
 from rest_framework.response import Response
 
 from bookmark.models import Bookmark
@@ -12,8 +12,10 @@ class BookmarkListCreateView(generics.ListCreateAPIView):
         return Bookmark.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        webtoon_id = self.request.data.get['webtoon']
-        existing_bookmarks = Bookmark.objects.filter(user=self.request.user, webtoon_id=webtoon_id)
+        webtoon_id = self.request.data.get["webtoon"]
+        existing_bookmarks = Bookmark.objects.filter(
+            user=self.request.user, webtoon_id=webtoon_id
+        )
 
         if existing_bookmarks:
             existing_bookmarks.delete()
