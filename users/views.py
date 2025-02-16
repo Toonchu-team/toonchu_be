@@ -1,23 +1,21 @@
 import logging
 import os
-import requests
 from datetime import datetime, timezone
 
+import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
-
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-
-from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework import generics, permissions, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.serializers import (
@@ -245,17 +243,24 @@ class TokenRefreshView(APIView):
         refresh_token = request.COOKIES.get("refresh_token")
 
         if not refresh_token:
-            return Response({"error": "Refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Refresh token is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             refresh = RefreshToken(refresh_token)
             new_access_token = str(refresh.access_token)
 
-            return Response({"access_token": new_access_token}, status=status.HTTP_200_OK)
+            return Response(
+                {"access_token": new_access_token}, status=status.HTTP_200_OK
+            )
 
         except TokenError:
-            return Response({"error": "Invalid or expired refresh token"}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response(
+                {"error": "Invalid or expired refresh token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class LogoutView(generics.CreateAPIView):
