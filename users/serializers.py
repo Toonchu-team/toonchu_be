@@ -2,8 +2,6 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MaxLengthValidator, MinLengthValidator
 from rest_framework import serializers
 
-from users.models import CustomUser
-
 User = get_user_model()
 
 
@@ -15,7 +13,7 @@ class SocialLoginSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
+        model = User  # 변경: CustomUser -> User
         fields = [
             "id",
             "email",
@@ -31,7 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model = User  # 변경: CustomUser -> User
         fields = [
             "id",
             "email",
