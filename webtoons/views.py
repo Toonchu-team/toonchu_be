@@ -1,6 +1,7 @@
 import json
 import os
 from copy import deepcopy
+from unicodedata import category
 
 import requests
 from django.db.models import Q
@@ -19,7 +20,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Webtoon
+from .models import Webtoon, Tag, WebtoonTag
 from .serializers import (
     ErrorResponseSerializer,
     TagSerializer,
@@ -102,4 +103,29 @@ class WebtoonSearchView(APIView):
         queryset = queryset.prefetch_related("webtoon_tags__tag")
 
         serializer = WebtoonSearchSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+class TagListView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="전체 태그 목록",
+        description="태그 전체 목록 API",
+        tags=["tags"],
+        request=TagSerializer,
+        parameters=[
+            OpenApiParameter(name="category", description="카테고리 이름", type=str),
+        ],
+        responses={
+            200: TagSerializer(many=True),
+            400: OpenApiTypes.OBJECT,
+        },
+    )
+
+    def get(self, request):
+        category = request.GET.get("category")
+        if category not in [choice[0] for choice in Tag.CATEGORY_CHOICES]:
+            return Response({"error":"유효하지 않은 카테고리입니다"},status=status.HTTP_400_BAD_REQUEST)
+        tags = Tag.objects.filter(category=category)
+        serializer = TagSerializer(tags, many=True)
         return Response(serializer.data)
