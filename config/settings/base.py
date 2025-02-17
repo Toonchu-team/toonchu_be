@@ -36,6 +36,7 @@ ALLOWED_HOSTS = []
 CUSTOM_APPS = [
     "users",
     "webtoons",
+    "bookmark",
 ]
 
 SYSTEM_APPS = [
