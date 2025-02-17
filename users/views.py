@@ -122,6 +122,7 @@ class SocialLoginView(APIView):
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         try:
+            logger.debug(f"Kakao Token Request: {data}")  # 요청 데이터 로그
             response = requests.post(url, data=data, headers=headers)
             logger.debug(
                 f"Kakao access token response: {response.status_code} {response.text}"
