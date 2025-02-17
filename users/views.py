@@ -263,29 +263,32 @@ class TokenRefreshView(APIView):
             )
 
 
-class LogoutView(generics.CreateAPIView):
+class LogoutView(APIView):
     permission_classes = [AllowAny]
-    serializer_class = LogoutSerializer
 
     @extend_schema(
         summary="로그아웃 처리",
-        description="로그아웃 처리합니다. 로그아웃과 동시에 token값은 blacklist에 보내서 다시 사용 불가",
-        responses={LogoutSerializer},
+        description="로그아웃을 처리합니다. 제공된 리프레시 토큰을 블랙리스트에 추가하여 재사용을 방지합니다.",
+        responses={
+            200: {"description": "로그아웃 성공"},
+            400: {"description": "로그아웃 실패"},
+        },
         tags=["users"],
     )
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return self.perform_create(serializer)
-
-    def perform_create(self, serializer):
+    def post(self, request):
         try:
-            refresh_token = serializer.validated_data["refresh_token"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response(
-                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-            )
+            refresh_token = request.data.get("refresh_token")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                return Response(
+                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
