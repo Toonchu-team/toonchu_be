@@ -282,12 +282,17 @@ class LogoutView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            refresh_token = serializer.validated_data['refresh_token']
+            refresh_token = serializer.validated_data["refresh_token"]
             token = RefreshToken(refresh_token)
             token.blacklist()
-            return Response({"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+            )
         except TokenError:
-            return Response({"error": "유효하지 않은 토큰입니다."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"error": "유효하지 않은 토큰입니다."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -337,8 +342,8 @@ class UserProfileView(generics.GenericAPIView):
                 location=OpenApiParameter.QUERY,
                 description="수정할 프로필 이미지",
                 required=False,
-            )
-        ]
+            ),
+        ],
     )
     def post(self, request, *args, **kwargs):  # POST 메서드만 처리
         if request.method not in ["POST"]:
