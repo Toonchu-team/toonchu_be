@@ -1,6 +1,6 @@
+import datetime
 import logging
 import os
-from datetime import datetime, timezone
 
 import requests
 from django.conf import settings
@@ -9,10 +9,11 @@ from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -122,6 +123,7 @@ class SocialLoginView(APIView):
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         try:
+            logger.debug(f"Kakao Token Request: {data}")  # 요청 데이터 로그
             response = requests.post(url, data=data, headers=headers)
             logger.debug(
                 f"Kakao access token response: {response.status_code} {response.text}"
@@ -263,27 +265,32 @@ class TokenRefreshView(APIView):
             )
 
 
-class LogoutView(generics.CreateAPIView):
-    serializer_class = LogoutSerializer
+class LogoutView(APIView):
+    permission_classes = [AllowAny]
 
     @extend_schema(
         summary="로그아웃 처리",
-        description="로그아웃 처리합니다. 로그아웃과 동시에 token값은 blacklist에 보내서 다시 사용 불가",
-        tags=["Logout"],
+        description="로그아웃을 처리합니다. 제공된 리프레시 토큰을 블랙리스트에 추가하여 재사용을 방지합니다.",
+        responses={
+            200: {"description": "로그아웃 성공"},
+            400: {"description": "로그아웃 실패"},
+        },
+        tags=["users"],
     )
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return self.perform_create(serializer)
-
-    def perform_create(self, serializer):
+    def post(self, request):
         try:
-            refresh_token = serializer.validated_data["refresh_token"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response(
-                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-            )
+            refresh_token = request.data.get("refresh_token")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                return Response(
+                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -360,6 +367,14 @@ class UserWithdrawView(generics.GenericAPIView):
     @extend_schema(
         summary="회원 탈퇴 요청",
         description="회원 탈퇴 요청을 처리합니다. 닉네임 일치 여부를 확인하고, 50일 후 사용자 정보를 삭제합니다.",
+        parameters=[
+            OpenApiParameter(
+                name="input_nick_name",
+                description="입력한 사용자 닉네임",
+                required=True,
+                type=str,
+            )
+        ],
         request=NicknameCheckSerializer,
         responses={
             200: OpenApiTypes.OBJECT,
@@ -380,7 +395,7 @@ class UserWithdrawView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # user.withdraw_at = timezone.now() # 해당필드가 없어서 주석처리함
+        user.withdraw_at = timezone.now()
 
         delete_date = timezone.now() + datetime.timedelta(days=50)
         user.is_active = False
