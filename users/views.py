@@ -10,7 +10,7 @@ from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -362,6 +362,14 @@ class UserWithdrawView(generics.GenericAPIView):
     @extend_schema(
         summary="회원 탈퇴 요청",
         description="회원 탈퇴 요청을 처리합니다. 닉네임 일치 여부를 확인하고, 50일 후 사용자 정보를 삭제합니다.",
+        parameters=[
+            OpenApiParameter(
+                name="input_nick_name",
+                description="입력한 사용자 닉네임",
+                required=True,
+                type=str,
+            )
+        ],
         request=NicknameCheckSerializer,
         responses={
             200: OpenApiTypes.OBJECT,
@@ -382,7 +390,7 @@ class UserWithdrawView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # user.withdraw_at = timezone.now() # 해당필드가 없어서 주석처리함
+        user.withdraw_at = timezone.now()
 
         delete_date = timezone.now() + datetime.timedelta(days=50)
         user.is_active = False
