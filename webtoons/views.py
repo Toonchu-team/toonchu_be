@@ -129,3 +129,33 @@ class TagListView(APIView):
         tags = Tag.objects.filter(category=category)
         serializer = TagSerializer(tags, many=True)
         return Response(serializer.data)
+
+class TagSearchView(APIView):
+    permission_classes = [AllowAny]
+    @extend_schema(
+        summary="태그 ID 별 기반 웸툰 검색",
+        description="여러 태그 ID 기반으로 태그가 포함된 웹툰 검색",
+        parameters=[
+            OpenApiParameter(name="id", description="태그 아이디", type=int),
+        ],
+        request=WebtoonTagSerializer,
+        responses={
+            200: WebtoonTagSerializer(many=True),
+            400: OpenApiTypes.OBJECT,
+        }
+    )
+
+    def get(self, request):
+        tag_id = request.GET.getlist("id")
+
+        webtoons = Webtoon.objects.all()
+        for tag_id in tag_id:
+            try:
+                tag_id = int(tag_id)
+                tag = Tag.objects.get(id=tag_id)
+                if tag:
+                    webtoons = webtoons.filter(webtoon_tags__tag__id=tag_id)
+            except Tag.DoesNotExist:
+                return Response({"error":"유효하지 않은 ID입니다"},status=status.HTTP_400_BAD_REQUEST)
+        serializer = WebtoonsSerializer(webtoons, many=True)
+        return Response(serializer.data)
