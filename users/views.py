@@ -269,28 +269,31 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
-        summary="로그아웃 처리",
-        description="로그아웃을 처리합니다. 제공된 리프레시 토큰을 블랙리스트에 추가하여 재사용을 방지합니다.",
+        request=LogoutSerializer,
         responses={
             200: {"description": "로그아웃 성공"},
-            400: {"description": "로그아웃 실패"},
+            400: {"description": "잘못된 요청"},
+            401: {"description": "인증 실패"},
         },
         tags=["users"],
     )
     def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            refresh_token = request.data.get("refresh_token")
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                return Response(
-                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-                )
-            else:
-                return Response(
-                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            refresh_token = serializer.validated_data["refresh_token"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response(
+                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+            )
+        except TokenError:
+            return Response(
+                {"error": "유효하지 않은 토큰입니다."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -326,6 +329,22 @@ class UserProfileView(generics.GenericAPIView):
         request=UserProfileSerializer,
         responses={200: UserProfileSerializer},
         tags=["User Profile"],
+        parameters=[
+            OpenApiParameter(
+                name="nick_name",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="수정할 닉네임",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="profile_img",
+                type=OpenApiTypes.BINARY,
+                location=OpenApiParameter.QUERY,
+                description="수정할 프로필 이미지",
+                required=False,
+            ),
+        ],
     )
     def post(self, request, *args, **kwargs):  # POST 메서드만 처리
         if request.method not in ["POST"]:
