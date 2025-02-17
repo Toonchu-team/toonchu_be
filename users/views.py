@@ -266,36 +266,28 @@ class TokenRefreshView(APIView):
 
 
 class LogoutView(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = []  # 인증 클래스 제거
+    permission_classes = []  # 권한 클래스 제거
 
-    @extend_schema(
-        request=LogoutSerializer,
-        responses={
-            200: {"description": "로그아웃 성공"},
-            400: {"description": "잘못된 요청"},
-            401: {"description": "인증 실패"},
-        },
-        tags=["users"],
-    )
     def post(self, request):
-        serializer = LogoutSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            refresh_token = serializer.validated_data["refresh_token"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response(
-                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-            )
-        except TokenError:
-            return Response(
-                {"error": "유효하지 않은 토큰입니다."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            refresh_token = request.data.get("refresh_token")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                return Response(
+                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+CustomUser = get_user_model()
 
 
 class UserProfileView(generics.GenericAPIView):
