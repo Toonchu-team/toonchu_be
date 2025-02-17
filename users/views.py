@@ -270,15 +270,21 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            refresh_token = request.data.get('refresh_token')
+            refresh_token = request.data.get("refresh_token")
             if refresh_token:
                 token = RefreshToken(refresh_token)
                 token.blacklist()
-                return Response({"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
+                return Response(
+                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+                )
             else:
-                return Response({"error": "리프레시 토큰이 제공되지 않았습니다."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 CustomUser = get_user_model()
 
