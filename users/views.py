@@ -1,6 +1,6 @@
+import datetime
 import logging
 import os
-from datetime import datetime, timezone
 
 import requests
 from django.conf import settings
@@ -9,6 +9,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions, status
