@@ -17,7 +17,7 @@ class Webtoon(CommonModel):
         ("10days", "10일"),
         ("20days", "20일"),
         ("month", "한달"),
-        ("etc.", "기타"),
+        ("etc", "기타"),
     ]
     SERIAL_DAY_CHOICES = [
         ("mon", "월요일"),

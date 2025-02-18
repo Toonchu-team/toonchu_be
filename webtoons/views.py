@@ -4,7 +4,7 @@ from copy import deepcopy
 from unicodedata import category
 
 import requests
-from django.db.models import Q
+from django.db.models import Count, Q
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -20,7 +20,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Webtoon, Tag, WebtoonTag
+from .models import Tag, Webtoon, WebtoonTag
 from .serializers import (
     ErrorResponseSerializer,
     TagSerializer,
@@ -90,7 +90,7 @@ class WebtoonSearchView(APIView):
         if provider:
             queryset = queryset.filter(
                 platform=provider
-            )  # platform__iexact 사용 유무(정확할 일치가 필요 할지)
+            )  # platform__iexact 사용 유무(영어 대소문자관련 일치여부 확인용)
 
         if tags:
             queryset = queryset.filter(webtoon_tags__tag__tag_name__in=tags).distinct()
@@ -104,6 +104,7 @@ class WebtoonSearchView(APIView):
 
         serializer = WebtoonSearchSerializer(queryset, many=True)
         return Response(serializer.data)
+
 
 class TagListView(APIView):
     permission_classes = [AllowAny]
@@ -121,17 +122,21 @@ class TagListView(APIView):
             400: OpenApiTypes.OBJECT,
         },
     )
-
     def get(self, request):
         category = request.GET.get("category")
         if category not in [choice[0] for choice in Tag.CATEGORY_CHOICES]:
-            return Response({"error":"유효하지 않은 카테고리입니다"},status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "유효하지 않은 카테고리입니다"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         tags = Tag.objects.filter(category=category)
         serializer = TagSerializer(tags, many=True)
         return Response(serializer.data)
 
+
 class TagSearchView(APIView):
     permission_classes = [AllowAny]
+
     @extend_schema(
         summary="태그 ID 별 기반 웸툰 검색",
         description="여러 태그 ID 기반으로 태그가 포함된 웹툰 검색",
@@ -142,20 +147,31 @@ class TagSearchView(APIView):
         responses={
             200: WebtoonTagSerializer(many=True),
             400: OpenApiTypes.OBJECT,
-        }
+        },
     )
-
     def get(self, request):
-        tag_id = request.GET.getlist("id")
+        tag_ids = request.GET.getlist("id")
 
+        # webtoons/search/tag?id=1&id=3&....
         webtoons = Webtoon.objects.all()
-        for tag_id in tag_id:
-            try:
-                tag_id = int(tag_id)
-                tag = Tag.objects.get(id=tag_id)
-                if tag:
-                    webtoons = webtoons.filter(webtoon_tags__tag__id=tag_id)
-            except Tag.DoesNotExist:
-                return Response({"error":"유효하지 않은 ID입니다"},status=status.HTTP_400_BAD_REQUEST)
-        serializer = WebtoonsSerializer(webtoons, many=True)
+        filtered_webtoons = (
+            webtoons.filter(webtoon_tags__tag__id__in=tag_ids)
+            .annotate(
+                matching_tags=Count(
+                    "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
+                )
+            )
+            .filter(matching_tags=len(tag_ids))
+        )
+        # 웹툰과 연결되는 태그 수 카운팅
+
+        # for tag_id in tag_id:
+        #     try:
+        #         tag_id = int(tag_id)
+        #         tag = Tag.objects.get(id=tag_id)
+        #         if tag:
+        #             webtoons = webtoons.filter(webtoon_tags__tag__id=tag_id)
+        #     except Tag.DoesNotExist:
+        #         return Response({"error":"유효하지 않은 ID입니다"},status=status.HTTP_400_BAD_REQUEST)
+        serializer = WebtoonsSerializer(filtered_webtoons, many=True)
         return Response(serializer.data)

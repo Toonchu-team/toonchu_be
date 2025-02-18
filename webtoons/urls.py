@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import WebtoonSearchView, WebtoonView, TagListView, TagSearchView
+from .views import TagListView, TagSearchView, WebtoonSearchView, WebtoonView
 
 urlpatterns = [
     path("", WebtoonView.as_view(), name="webtoons-post"),
