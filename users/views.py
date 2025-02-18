@@ -13,9 +13,11 @@ from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -266,15 +268,19 @@ class TokenRefreshView(APIView):
 
 
 class LogoutView(APIView):
-    authentication_classes = []  # 인증 클래스 제거
-    permission_classes = []  # 권한 클래스 제거
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
             refresh_token = request.data.get("refresh_token")
+
             if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
+                serializer = LogoutSerializer(data=request.data)
+                if serializer.is_valid():
+                    token = serializer.data.get("refresh_token")
+                    token.blacklist()
+
                 return Response(
                     {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
                 )
@@ -293,6 +299,7 @@ CustomUser = get_user_model()
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserProfileSerializer
+    parser_classes = (MultiPartParser, FormParser)
     queryset = User.objects.all()
 
     def get_object(self):
@@ -338,9 +345,7 @@ class UserProfileView(generics.GenericAPIView):
             ),
         ],
     )
-    def post(self, request, *args, **kwargs):  # POST 메서드만 처리
-        if request.method not in ["POST"]:
-            return HttpResponseNotAllowed(["POST"])
+    def patch(self, request, *args, **kwargs):
 
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
