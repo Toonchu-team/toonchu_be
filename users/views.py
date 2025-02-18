@@ -19,6 +19,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.serializers import (
@@ -267,35 +268,72 @@ class TokenRefreshView(APIView):
             )
 
 
+#
+# class LogoutView(APIView):
+#     authentication_classes = [JWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+#
+#     def post(self, request):
+#         print(request.data)
+#         try:
+#             refresh_token = request.data.get("refresh_token")
+#
+#             if refresh_token:
+#                 serializer = LogoutSerializer(data=request.data)
+#                 if serializer.is_valid():
+#                     token = serializer.data.get("refresh_token")
+#                     token.blacklist()
+#                     logger.debug(f"Token blacklist: {token}")
+#
+#                 return Response(
+#                     {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+#                 )
+#             else:
+#                 return Response(
+#                     {"error": "리프레시 토큰이 제공되지 않았습니다."},
+#                     status=status.HTTP_400_BAD_REQUEST,
+#                 )
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+CustomUser = get_user_model()
+
+
 class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        print(request.data)
+        refresh_token = request.data.get("refresh_token")
+        logger.info(f"Received refresh_token:{refresh_token}")
+
+        if not refresh_token:
+            return Response(
+                {"error": "리프레시 토큰이 제공되지 않았습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
-            refresh_token = request.data.get("refresh_token")
+            token = RefreshToken(refresh_token)
+            logger.info("RefreshToken 객체 생성 성공!")
+            token.blacklist()
+            logger.info("RefreshToken 블랙리스트 추가 성공!")
 
-            if refresh_token:
-                serializer = LogoutSerializer(data=request.data)
-                if serializer.is_valid():
-                    token = serializer.data.get("refresh_token")
-                    token.blacklist()
-                    logger.debug(f"Token blacklist: {token}")
-
-                return Response(
-                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-                )
+            # 블랙리스트 등록 여부 직접 확인
+            is_blacklisted = BlacklistedToken.objects.filter(token=str(token)).exists()
+            if is_blacklisted:
+                logger.info("토큰이 블랙리스트에 정상적으로 추가되었습니다.")
             else:
-                return Response(
-                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                logger.warning("토큰이 블랙리스트에 추가되지 않았습니다!")
+
+            return Response(
+                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+            )
+
         except Exception as e:
+            logger.error(f"Logout error: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-CustomUser = get_user_model()
 
 
 class UserProfileView(generics.GenericAPIView):
