@@ -1,8 +1,5 @@
 import json
 import os
-from copy import deepcopy
-from unicodedata import category
-
 import requests
 from django.db.models import Count, Q
 from drf_spectacular.utils import (
@@ -12,8 +9,7 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from rest_framework import permissions, status
-from rest_framework.decorators import api_view
-from rest_framework.exceptions import ValidationError
+from rest_framework.decorators import action
 from rest_framework.generics import CreateAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
@@ -24,7 +20,6 @@ from .models import Tag, Webtoon, WebtoonTag
 from .serializers import (
     ErrorResponseSerializer,
     TagSerializer,
-    WebtoonSearchSerializer,
     WebtoonsSerializer,
     WebtoonTagSerializer,
 )
@@ -67,16 +62,19 @@ class WebtoonSearchView(APIView):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name="provider", description="웹툰 플랫폼", type=str),
+            OpenApiParameter(
+                name="provider", description="웹툰 플랫폼", type=str,
+                enum=["naver", "kakaowebtoon", "kakaopage", "others"]
+            ),
             OpenApiParameter(name="tag", description="웹툰 태그", type=str),
             OpenApiParameter(name="term", description="검색어", type=str),
         ],
         summary="웹툰 검색",
         description="웹툰 검색 api입니다.",
         tags=["Webtoons Search"],
-        request=WebtoonSearchSerializer,
+        request=WebtoonsSerializer,
         responses={
-            200: WebtoonSearchSerializer(many=True),
+            200: WebtoonsSerializer(many=True),
             400: OpenApiTypes.OBJECT,
         },
     )
@@ -102,7 +100,7 @@ class WebtoonSearchView(APIView):
 
         queryset = queryset.prefetch_related("webtoon_tags__tag")
 
-        serializer = WebtoonSearchSerializer(queryset, many=True)
+        serializer = WebtoonsSerializer(queryset, many=True)
         return Response(serializer.data)
 
 
@@ -138,14 +136,14 @@ class TagSearchView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
-        summary="태그 ID 별 기반 웸툰 검색",
+        summary="태그 ID 별 기반 웹툰 검색",
         description="여러 태그 ID 기반으로 태그가 포함된 웹툰 검색",
         parameters=[
             OpenApiParameter(name="id", description="태그 아이디", type=int, many=True),
         ],
         request=WebtoonTagSerializer,
         responses={
-            200: WebtoonTagSerializer(many=True),
+            200: WebtoonsSerializer(many=True),
             400: OpenApiTypes.OBJECT,
         },
     )
@@ -163,7 +161,7 @@ class TagSearchView(APIView):
             )
             .filter(matching_tags=len(tag_ids))
         )
-        # 웹툰과 연결되는 태그 수 카운팅
+        # 웹툰과 연결 되어 있는 태그 수 카운팅
 
         # for tag_id in tag_id:
         #     try:
@@ -174,4 +172,43 @@ class TagSearchView(APIView):
         #     except Tag.DoesNotExist:
         #         return Response({"error":"유효하지 않은 ID입니다"},status=status.HTTP_400_BAD_REQUEST)
         serializer = WebtoonsSerializer(filtered_webtoons, many=True)
+        return Response(serializer.data)
+
+class WebtoonDayListView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="요일별/연재유무별 웹툰 리스트",
+        description="요일별, 신작, 연재유무별 로 웹툰 리스트 표현",
+        parameters=[
+            OpenApiParameter(
+                name="day", description="요일", type=str,
+                enum=["mon","tue","wed","thu","fri","sat","sun"],
+            ),
+            OpenApiParameter(
+                name="status", description="신작/완결/전체", type=str,
+                enum=["all", "new", "completed"]
+            )
+        ],
+        request=WebtoonsSerializer,
+        responses={
+            200: WebtoonsSerializer(many=True),
+            400: OpenApiTypes.OBJECT,
+        }
+    )
+    def get(self, request):
+        day = request.query_params.get("day","")
+        status = request.query_params.get("status")
+        queryset = Webtoon.objects.all()
+
+        if day:
+            queryset = queryset.filter(serial_day__iexact=day)
+
+            if status == "new":
+                queryset = queryset.filter(is_new=True)
+
+            elif status == "completed":
+                queryset = queryset.filter(is_complated=True)
+
+        serializer = WebtoonsSerializer(queryset, many=True)
         return Response(serializer.data)

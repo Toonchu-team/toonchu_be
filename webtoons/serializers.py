@@ -9,29 +9,6 @@ class TagSerializer(serializers.ModelSerializer):
         model = Tag
         fields = ["id", "tag_name", "category"]
 
-
-class WebtoonSearchSerializer(serializers.ModelSerializer):
-    tags = TagSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Webtoon
-        fields = [
-            "id",
-            "title",
-            "author",
-            "thumbnail",
-            "webtoon_url",
-            "platform",
-            "is_new",
-            "is_completed",
-            "serial_day",
-            "tags",
-        ]
-
-    def get_tags(self, obj):
-        return TagSerializer(obj.webtoon_tags.all().values("tag"), many=True).data
-
-
 class WebtoonTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = WebtoonTag
@@ -54,6 +31,8 @@ class WebtoonsSerializer(serializers.ModelSerializer):
             "serialization_cycle",
             "created_at",
             "updated_at",
+            "is_new",
+            "is_completed",
             "tags",
         ]
 
@@ -120,6 +99,7 @@ class WebtoonsSerializer(serializers.ModelSerializer):
         tags = [webtoon_tag.tag for webtoon_tag in instance.webtoon_tags.all()]
         data["tags"] = TagSerializer(tags, many=True).data
         return data
+
 
 
 class ErrorResponseSerializer(serializers.Serializer):
