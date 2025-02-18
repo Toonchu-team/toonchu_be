@@ -265,15 +265,18 @@ class TokenRefreshView(APIView):
             )
 
 
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+
 class LogoutView(APIView):
-    authentication_classes = []  # 인증 클래스 제거
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
             refresh_token = request.data.get("refresh_token")
             if not refresh_token:
-                auth_header = request.headers.get("access-token")
+                auth_header = request.headers.get("Authorization")
                 if auth_header and auth_header.startswith("Bearer "):
                     refresh_token = auth_header.split(" ")[1]
             if refresh_token:
@@ -291,7 +294,7 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-CustomUser = get_user_model()
+# CustomUser = get_user_model()
 
 
 class UserProfileView(generics.GenericAPIView):
