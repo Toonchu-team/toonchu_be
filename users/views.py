@@ -335,7 +335,7 @@ class LogoutView(APIView):
 
         except Exception as e:
             logger.error(f"Logout error: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
 class UserProfileView(generics.GenericAPIView):
