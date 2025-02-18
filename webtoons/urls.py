@@ -9,7 +9,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path("", WebtoonCreateView.as_view(), name="webtoons-post"),
+    path("request/", WebtoonCreateView.as_view(), name="webtoons-post"),
     path("search", SearchByIntegrateView.as_view(), name="webtoons-search"),
     path("search/tag", SearchByTagView.as_view(), name="webtoons-tag-list"),
     path("list/", ListByDayView.as_view(), name="webtoons-day-list"),

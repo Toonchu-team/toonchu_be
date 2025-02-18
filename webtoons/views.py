@@ -9,7 +9,6 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from rest_framework import permissions, status
-from rest_framework.decorators import action
 from rest_framework.generics import CreateAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
@@ -18,7 +17,6 @@ from rest_framework.views import APIView
 
 from .models import Tag, Webtoon, WebtoonTag
 from .serializers import (
-    ErrorResponseSerializer,
     TagSerializer,
     WebtoonsSerializer,
     WebtoonTagSerializer,
@@ -33,7 +31,7 @@ class WebtoonCreateView(CreateAPIView):
     @extend_schema(
         summary="웹툰 작품 등록",
         description="웹툰 작품을 등록 신청하는 API입니다.",
-        tags=["Webtoons post"],
+        tags=["Webtoons"],
         request=WebtoonsSerializer,
         responses={
             201: WebtoonsSerializer,
@@ -50,12 +48,6 @@ class WebtoonCreateView(CreateAPIView):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
-
-    def get(self, request):
-        webtoons = Webtoon.objects.all()
-        serializer = WebtoonsSerializer(webtoons, many=True)
-        return Response(serializer.data)
-
 
 class SearchByIntegrateView(APIView):
     permission_classes = [AllowAny]
@@ -110,7 +102,7 @@ class ListByTagView(APIView):
     @extend_schema(
         summary="전체 태그 목록",
         description="태그 전체 목록 API",
-        tags=["list"],
+        tags=["Webtoons list"],
         request=TagSerializer,
         parameters=[
             OpenApiParameter(name="category", description="카테고리 이름", type=str),
@@ -181,7 +173,7 @@ class ListByDayView(APIView):
     @extend_schema(
         summary="요일별/연재유무별 웹툰 리스트",
         description="요일별, 신작, 연재유무별 로 웹툰 리스트 표현",
-        tags=["list"],
+        tags=["Webtoons list"],
         parameters=[
             OpenApiParameter(
                 name="day", description="요일", type=str,
