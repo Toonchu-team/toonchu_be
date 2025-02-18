@@ -141,7 +141,7 @@ class TagSearchView(APIView):
         summary="태그 ID 별 기반 웸툰 검색",
         description="여러 태그 ID 기반으로 태그가 포함된 웹툰 검색",
         parameters=[
-            OpenApiParameter(name="id", description="태그 아이디", type=int),
+            OpenApiParameter(name="id", description="태그 아이디", type=int, many=True),
         ],
         request=WebtoonTagSerializer,
         responses={
