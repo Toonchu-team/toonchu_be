@@ -1,6 +1,6 @@
+import datetime
 import logging
 import os
-from datetime import datetime, timezone
 
 import requests
 from django.conf import settings
@@ -9,8 +9,9 @@ from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -264,31 +265,33 @@ class TokenRefreshView(APIView):
             )
 
 
-class LogoutView(generics.CreateAPIView):
-    permission_classes = [AllowAny]
-    serializer_class = LogoutSerializer
+class LogoutView(APIView):
+    authentication_classes = []  # 인증 클래스 제거
+    permission_classes = []  # 권한 클래스 제거
 
-    @extend_schema(
-        summary="로그아웃 처리",
-        description="로그아웃 처리합니다. 로그아웃과 동시에 token값은 blacklist에 보내서 다시 사용 불가",
-        responses={LogoutSerializer},
-        tags=["users"],
-    )
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return self.perform_create(serializer)
-
-    def perform_create(self, serializer):
+    def post(self, request):
         try:
-            refresh_token = serializer.validated_data["refresh_token"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response(
-                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-            )
+            refresh_token = request.data.get("refresh_token")
+            if not refresh_token:
+                auth_header = request.headers.get("Authorization")
+                if auth_header and auth_header.startswith("Bearer "):
+                    refresh_token = auth_header.split(" ")[1]
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                return Response(
+                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+CustomUser = get_user_model()
 
 
 class UserProfileView(generics.GenericAPIView):
@@ -322,6 +325,22 @@ class UserProfileView(generics.GenericAPIView):
         request=UserProfileSerializer,
         responses={200: UserProfileSerializer},
         tags=["User Profile"],
+        parameters=[
+            OpenApiParameter(
+                name="nick_name",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="수정할 닉네임",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="profile_img",
+                type=OpenApiTypes.BINARY,
+                location=OpenApiParameter.QUERY,
+                description="수정할 프로필 이미지",
+                required=False,
+            ),
+        ],
     )
     def post(self, request, *args, **kwargs):  # POST 메서드만 처리
         if request.method not in ["POST"]:
@@ -363,6 +382,14 @@ class UserWithdrawView(generics.GenericAPIView):
     @extend_schema(
         summary="회원 탈퇴 요청",
         description="회원 탈퇴 요청을 처리합니다. 닉네임 일치 여부를 확인하고, 50일 후 사용자 정보를 삭제합니다.",
+        parameters=[
+            OpenApiParameter(
+                name="input_nick_name",
+                description="입력한 사용자 닉네임",
+                required=True,
+                type=str,
+            )
+        ],
         request=NicknameCheckSerializer,
         responses={
             200: OpenApiTypes.OBJECT,
@@ -383,7 +410,7 @@ class UserWithdrawView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # user.withdraw_at = timezone.now() # 해당필드가 없어서 주석처리함
+        user.withdraw_at = timezone.now()
 
         delete_date = timezone.now() + datetime.timedelta(days=50)
         user.is_active = False
