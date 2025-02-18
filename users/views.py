@@ -305,6 +305,7 @@ class LogoutView(APIView):
     serializer_class = LogoutSerializer
 
     def post(self, request):
+        raise Exception("1123")
         refresh_token = request.data.get("refresh_token")
         logger.info(f"Received refresh_token:{refresh_token}")
         logger.info(f"User ID: {request.user.id}")
