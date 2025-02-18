@@ -307,6 +307,7 @@ class LogoutView(APIView):
     def post(self, request):
         refresh_token = request.data.get("refresh_token")
         logger.info(f"Received refresh_token:{refresh_token}")
+        logger.info(f"User ID: {request.user.id}")
 
         if not refresh_token:
             return Response(
@@ -328,7 +329,8 @@ class LogoutView(APIView):
                 logger.warning("토큰이 블랙리스트에 추가되지 않았습니다!")
 
             return Response(
-                {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+                {"message": "로그아웃 되었습니다.", "user_id": request.user.id},
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:
