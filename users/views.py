@@ -267,13 +267,13 @@ class TokenRefreshView(APIView):
 
 class LogoutView(APIView):
     authentication_classes = []  # 인증 클래스 제거
-    permission_classes = []  # 권한 클래스 제거
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
             refresh_token = request.data.get("refresh_token")
             if not refresh_token:
-                auth_header = request.headers.get("Authorization")
+                auth_header = request.headers.get("access-token")
                 if auth_header and auth_header.startswith("Bearer "):
                     refresh_token = auth_header.split(" ")[1]
             if refresh_token:
