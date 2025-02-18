@@ -15,7 +15,7 @@ CORS_ALLOW_ALL_ORIGINS = True  # 개발 환경에서만 사용
 
 LOGGING = {
     "version": 1,
-    "disable_existing_loggers": False,
+    "disable_existing_loggers": True,
     "formatters": {
         "verbose": {
             "format": "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
@@ -58,7 +58,7 @@ LOGGING = {
         "logger.info": {
             "level": "INFO",
             "handlers": ["console"],
-            "propagate": False,
+            "propagate": True,
         },
         "logger.warning": {
             "level": "WARNING",
@@ -68,7 +68,7 @@ LOGGING = {
         "logger.error": {
             "level": "ERROR",
             "handlers": ["console"],
-            "propagate": False,
+            "propagate": True,
         },
     },
 }
