@@ -16,6 +16,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -264,36 +265,29 @@ class TokenRefreshView(APIView):
             )
 
 
-from rest_framework_simplejwt.authentication import JWTAuthentication
-
-
 class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
-            refresh_token = request.data.get("refresh_token")
-            if not refresh_token:
-                auth_header = request.headers.get("Authorization")
-                if auth_header and auth_header.startswith("Bearer "):
-                    refresh_token = auth_header.split(" ")[1]
-            if refresh_token:
-                token = RefreshToken(refresh_token)
+            # 사용자의 모든 refresh 토큰을 블랙리스트에 추가
+            for token in RefreshToken.for_user(request.user):
                 token.blacklist()
-                return Response(
-                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-                )
-            else:
-                return Response(
-                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+
+            return Response(
+                {
+                    "message": "로그아웃 되었습니다. 모든 리프레시 토큰이 블랙리스트에 추가되었습니다."
+                },
+                status=status.HTTP_200_OK,
+            )
+        except TokenError as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-# CustomUser = get_user_model()
+            return Response(
+                {"error": "알 수 없는 오류가 발생했습니다."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class UserProfileView(generics.GenericAPIView):
