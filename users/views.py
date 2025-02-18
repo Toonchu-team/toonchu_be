@@ -300,8 +300,8 @@ CustomUser = get_user_model()
 
 
 class LogoutView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    # authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
     serializer_class = LogoutSerializer
 
     def post(self, request):
