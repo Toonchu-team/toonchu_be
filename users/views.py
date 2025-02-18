@@ -13,6 +13,7 @@ from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -124,6 +125,7 @@ class SocialLoginView(APIView):
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         try:
+            logger.debug(f"Kakao Token Request: {data}")  # 요청 데이터 로그
             response = requests.post(url, data=data, headers=headers)
             logger.debug(
                 f"Kakao access token response: {response.status_code} {response.text}"
@@ -271,28 +273,33 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            # 사용자의 모든 refresh 토큰을 블랙리스트에 추가
-            for token in RefreshToken.for_user(request.user):
-                token.blacklist()
+            refresh_token = request.data.get("refresh_token")
 
-            return Response(
-                {
-                    "message": "로그아웃 되었습니다. 모든 리프레시 토큰이 블랙리스트에 추가되었습니다."
-                },
-                status=status.HTTP_200_OK,
-            )
-        except TokenError as e:
-            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            if refresh_token:
+                serializer = LogoutSerializer(data=request.data)
+                if serializer.is_valid():
+                    token = serializer.data.get("refresh_token")
+                    token.blacklist()
+
+                return Response(
+                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
-            return Response(
-                {"error": "알 수 없는 오류가 발생했습니다."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+CustomUser = get_user_model()
 
 
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserProfileSerializer
+    parser_classes = (MultiPartParser, FormParser)
     queryset = User.objects.all()
 
     def get_object(self):
@@ -338,9 +345,7 @@ class UserProfileView(generics.GenericAPIView):
             ),
         ],
     )
-    def post(self, request, *args, **kwargs):  # POST 메서드만 처리
-        if request.method not in ["POST"]:
-            return HttpResponseNotAllowed(["POST"])
+    def patch(self, request, *args, **kwargs):
 
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
