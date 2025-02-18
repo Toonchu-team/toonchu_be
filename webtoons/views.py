@@ -25,7 +25,7 @@ from .serializers import (
 )
 
 
-class WebtoonView(CreateAPIView):
+class WebtoonCreateView(CreateAPIView):
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = WebtoonsSerializer
@@ -57,7 +57,7 @@ class WebtoonView(CreateAPIView):
         return Response(serializer.data)
 
 
-class WebtoonSearchView(APIView):
+class SearchByIntegrateView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -70,7 +70,7 @@ class WebtoonSearchView(APIView):
             OpenApiParameter(name="term", description="검색어", type=str),
         ],
         summary="웹툰 검색",
-        description="웹툰 검색 api입니다.",
+        description="웹툰 통합 검색 api입니다. 플랫폼별, 태그별, 검색어로 검색합니다.",
         tags=["Webtoons Search"],
         request=WebtoonsSerializer,
         responses={
@@ -104,13 +104,13 @@ class WebtoonSearchView(APIView):
         return Response(serializer.data)
 
 
-class TagListView(APIView):
+class ListByTagView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
         summary="전체 태그 목록",
         description="태그 전체 목록 API",
-        tags=["tags"],
+        tags=["list"],
         request=TagSerializer,
         parameters=[
             OpenApiParameter(name="category", description="카테고리 이름", type=str),
@@ -132,12 +132,13 @@ class TagListView(APIView):
         return Response(serializer.data)
 
 
-class TagSearchView(APIView):
+class SearchByTagView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
         summary="태그 ID 별 기반 웹툰 검색",
         description="여러 태그 ID 기반으로 태그가 포함된 웹툰 검색",
+        tags=["Webtoons Search"],
         parameters=[
             OpenApiParameter(name="id", description="태그 아이디", type=int, many=True),
         ],
@@ -174,12 +175,13 @@ class TagSearchView(APIView):
         serializer = WebtoonsSerializer(filtered_webtoons, many=True)
         return Response(serializer.data)
 
-class WebtoonDayListView(APIView):
+class ListByDayView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
         summary="요일별/연재유무별 웹툰 리스트",
         description="요일별, 신작, 연재유무별 로 웹툰 리스트 표현",
+        tags=["list"],
         parameters=[
             OpenApiParameter(
                 name="day", description="요일", type=str,
