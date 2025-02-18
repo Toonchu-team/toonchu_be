@@ -322,11 +322,11 @@ class LogoutView(APIView):
             logger.info("RefreshToken 블랙리스트 추가 성공!")
 
             # 블랙리스트 등록 여부 직접 확인
-            is_blacklisted = BlacklistedToken.objects.filter(token=str(token)).exists()
-            if is_blacklisted:
-                logger.info("토큰이 블랙리스트에 정상적으로 추가되었습니다.")
-            else:
-                logger.warning("토큰이 블랙리스트에 추가되지 않았습니다!")
+            # is_blacklisted = BlacklistedToken.objects.filter(token=str(token)).exists()
+            # if is_blacklisted:
+            #     logger.info("토큰이 블랙리스트에 정상적으로 추가되었습니다.")
+            # else:
+            #     logger.warning("토큰이 블랙리스트에 추가되지 않았습니다!")
 
             return Response(
                 {"message": "로그아웃 되었습니다.", "user_id": request.user.id},
