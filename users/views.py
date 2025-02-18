@@ -281,6 +281,7 @@ class LogoutView(APIView):
                 if serializer.is_valid():
                     token = serializer.data.get("refresh_token")
                     token.blacklist()
+                    logger.debug(f"Token blacklist: {token}")
 
                 return Response(
                     {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
