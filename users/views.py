@@ -268,7 +268,6 @@ class TokenRefreshView(APIView):
             )
 
 
-#
 # class LogoutView(APIView):
 #     authentication_classes = [JWTAuthentication]
 #     permission_classes = [IsAuthenticated]
@@ -303,6 +302,7 @@ CustomUser = get_user_model()
 class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
+    serializer_class = LogoutSerializer
 
     def post(self, request):
         refresh_token = request.data.get("refresh_token")
