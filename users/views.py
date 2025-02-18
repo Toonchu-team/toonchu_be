@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -122,6 +122,7 @@ class SocialLoginView(APIView):
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         try:
+            logger.debug(f"Kakao Token Request: {data}")  # 요청 데이터 로그
             response = requests.post(url, data=data, headers=headers)
             logger.debug(
                 f"Kakao access token response: {response.status_code} {response.text}"
@@ -264,12 +265,14 @@ class TokenRefreshView(APIView):
 
 
 class LogoutView(generics.CreateAPIView):
+    permission_classes = [AllowAny]
     serializer_class = LogoutSerializer
 
     @extend_schema(
         summary="로그아웃 처리",
         description="로그아웃 처리합니다. 로그아웃과 동시에 token값은 blacklist에 보내서 다시 사용 불가",
-        tags=["Logout"],
+        responses={LogoutSerializer},
+        tags=["users"],
     )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
