@@ -219,28 +219,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",
     "http://127.0.0.1:3000",
-    "http://localhost:3000",  # React, Vue 등의 프론트엔드 서버 주소
+    "http://localhost:3000",
+    "https://toonchu-fe.vercel.app/",
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "file": {
-            "level": "DEBUG",
-            "class": "logging.FileHandler",
-            "filename": "debug.log",
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["file"],
-            "level": "DEBUG",
-            "propagate": True,
-        },
-    },
-}
-
 GOOGLE_OAUTH2_SCOPE = ["email", "profile"]  # 새로운 설정 추가
+
+
+# FRONTEND_URL = "https://toonchu-fe.vercel.app/"
