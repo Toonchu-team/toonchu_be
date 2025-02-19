@@ -6,7 +6,6 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "https://toonchu-fe.vercel.app/",
     ENV.get("DB_HOST"),
 ]
 
