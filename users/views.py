@@ -117,6 +117,143 @@ class SocialLoginView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    def get_access_token(self, provider, auth_code):
+        # 인가 코드로 access token 요청
+        if provider == "kakao":
+            return self.get_kakao_access_token(auth_code)
+        elif provider == "naver":
+            return self.get_naver_access_token(auth_code)
+        elif provider == "google":
+            return self.get_google_access_token(auth_code)
+        return None
+
+    def get_kakao_access_token(self, auth_code):
+        # 카카오 인가 코드 → Access Token 변환
+        url = "https://kauth.kakao.com/oauth/token"
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": settings.KAKAO_CLIENT_ID,
+            "redirect_uri": settings.KAKAO_CALLBACK_URL,
+            "code": auth_code,
+            "client_secret": settings.KAKAO_CLIENT_SECRET,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        try:
+            logger.debug(f"Kakao Token Request: {data}")  # 요청 데이터 로그
+            response = requests.post(url, data=data, headers=headers)
+            logger.debug(
+                f"Kakao access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+            else:
+                logger.error(
+                    f"Kakao access token failed: {response.status_code} - {response.text}"
+                )
+        except Exception as e:
+            logger.error(f"Error occurred while getting Kakao access token: {str(e)}")
+        return None
+
+    def get_naver_access_token(self, auth_code):
+        # 네이버 인가 코드 → Access Token 변환
+        url = "https://nid.naver.com/oauth2.0/token"
+        params = {
+            "grant_type": "authorization_code",
+            "client_id": settings.NAVER_CLIENT_ID,
+            "client_secret": settings.NAVER_CLIENT_SECRET,
+            "code": auth_code,
+            "state": "random_state_string",  # 보안 강화를 위해 사용
+        }
+        try:
+            response = requests.get(url, params=params)
+            logger.debug(
+                f"Naver access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+        except Exception as e:
+            logger.error(f"Error occurred while getting Naver access token: {str(e)}")
+        return None
+
+    def get_google_access_token(self, auth_code):
+        # 구글 인가 코드 → Access Token 변환
+        url = "https://oauth2.googleapis.com/token"
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": settings.GOOGLE_CALLBACK_URL,
+            "code": auth_code,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        try:
+            response = requests.post(url, data=data, headers=headers)
+            logger.debug(
+                f"Google access token response: {response.status_code} {response.text}"
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+        except Exception as e:
+            logger.error(f"Error occurred while getting Google access token: {str(e)}")
+        return None
+
+    def get_social_user_info(self, provider, access_token):
+        logger.debug(f"Getting user info for provider: {provider}")
+
+        # access_token -> 소셜 사용자 정보 가져오기
+        try:
+            if provider == "kakao":
+                url = "https://kapi.kakao.com/v2/user/me"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Kakao API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "email": data["kakao_account"].get("email"),
+                        "nick_name": data["properties"].get("nick_name"),
+                        "profile_image": data["properties"].get("profile_image"),
+                    }
+
+            elif provider == "naver":
+                url = "https://openapi.naver.com/v1/nid/me"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Naver API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()["response"]
+                    return {
+                        "email": data.get("email"),
+                        "nick_name": data.get("nick_name"),
+                        "profile_image": data.get("profile_image"),
+                    }
+            elif provider == "google":
+                url = "https://www.googleapis.com/oauth2/v3/userinfo"
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, headers=headers)
+                logger.debug(
+                    f"Google API response: {response.status_code} {response.text}"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "email": data.get("email"),
+                        "nick_name": data.get("name"),
+                        "profile_image": data.get("picture"),
+                    }
+        except Exception as e:
+            logger.error(
+                f"Error occurred while fetching user info from {provider}: {str(e)}"
+            )
+
+        return None
+
 
 class TokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
