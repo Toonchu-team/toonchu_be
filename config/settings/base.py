@@ -228,4 +228,4 @@ CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 GOOGLE_OAUTH2_SCOPE = ["email", "profile"]  # 새로운 설정 추가
 
 
-FRONTEND_URL = "https://toonchu-fe.vercel.app/"
+# FRONTEND_URL = "https://toonchu-fe.vercel.app/"
