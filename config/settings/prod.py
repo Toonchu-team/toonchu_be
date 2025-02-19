@@ -5,6 +5,7 @@ DEBUG = False
 
 ALLOWED_HOSTS = [
     "https://toonchu-fe.vercel.app/",
+    "http://be.toonchu.kro.kr/",
     ENV.get("DB_HOST"),
 ]
 
