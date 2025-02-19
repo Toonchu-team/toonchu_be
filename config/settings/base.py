@@ -224,23 +224,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "file": {
-            "level": "DEBUG",
-            "class": "logging.FileHandler",
-            "filename": "debug.log",
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["file"],
-            "level": "DEBUG",
-            "propagate": True,
-        },
-    },
-}
-
 GOOGLE_OAUTH2_SCOPE = ["email", "profile"]  # 새로운 설정 추가
+
+
+FRONTEND_URL = "https://toonchu-fe.vercel.app/"
