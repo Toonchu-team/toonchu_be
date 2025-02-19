@@ -1,13 +1,12 @@
 from django.urls import path
 
 from .views import (
-    ListByTagView,
-    SearchByTagView,
-    SearchByIntegrateView,
-    WebtoonCreateView,
     ListByDayView,
+    ListByTagView,
     ListView,
-
+    SearchByIntegrateView,
+    SearchByTagView,
+    WebtoonCreateView,
 )
 
 urlpatterns = [

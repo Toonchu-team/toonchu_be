@@ -1,5 +1,6 @@
 import json
 import os
+
 import requests
 from django.db.models import Count, Q
 from drf_spectacular.utils import (
@@ -17,10 +18,10 @@ from rest_framework.views import APIView
 from .models import Tag, Webtoon
 from .serializers import (
     TagSerializer,
+    UserWebtoonSerializer,
+    WebtoonGetSerializer,
     WebtoonsSerializer,
     WebtoonTagSerializer,
-    WebtoonGetSerializer,
-    UserWebtoonSerializer
 )
 
 
@@ -39,7 +40,7 @@ class WebtoonCreateView(CreateAPIView):
             400: OpenApiTypes.OBJECT,
         },
     )
-    def create(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         data = {key: value for key, value in request.data.items()}
         data["tags"] = json.loads(request.data["tags"])
         serializer = self.get_serializer(data=data)
@@ -50,14 +51,17 @@ class WebtoonCreateView(CreateAPIView):
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
 
+
 class SearchByIntegrateView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
         parameters=[
             OpenApiParameter(
-                name="provider", description="웹툰 플랫폼", type=str,
-                enum=["naver", "kakaowebtoon", "kakaopage", "others"]
+                name="provider",
+                description="웹툰 플랫폼",
+                type=str,
+                enum=["naver", "kakaowebtoon", "kakaopage", "others"],
             ),
             OpenApiParameter(name="tag", description="웹툰 태그", type=str),
             OpenApiParameter(name="term", description="검색어", type=str),
@@ -168,6 +172,7 @@ class SearchByTagView(APIView):
         serializer = WebtoonsSerializer(filtered_webtoons, many=True)
         return Response(serializer.data)
 
+
 class ListByDayView(APIView):
     permission_classes = [AllowAny]
 
@@ -177,22 +182,26 @@ class ListByDayView(APIView):
         tags=["Webtoons list"],
         parameters=[
             OpenApiParameter(
-                name="day", description="요일", type=str,
-                enum=["mon","tue","wed","thu","fri","sat","sun"],
+                name="day",
+                description="요일",
+                type=str,
+                enum=["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
             ),
             OpenApiParameter(
-                name="status", description="신작/완결/전체", type=str,
-                enum=["all", "new", "completed"]
-            )
+                name="status",
+                description="신작/완결/전체",
+                type=str,
+                enum=["all", "new", "completed"],
+            ),
         ],
         request=WebtoonsSerializer,
         responses={
             200: WebtoonsSerializer(many=True),
             400: OpenApiTypes.OBJECT,
-        }
+        },
     )
     def get(self, request):
-        day = request.query_params.get("day","")
+        day = request.query_params.get("day", "")
         status = request.query_params.get("status")
         queryset = Webtoon.objects.all()
 
@@ -208,6 +217,7 @@ class ListByDayView(APIView):
         serializer = WebtoonsSerializer(queryset, many=True)
         return Response(serializer.data)
 
+
 class ListView(APIView):
     permission_classes = [AllowAny]
     serializer_class = WebtoonGetSerializer
@@ -217,15 +227,16 @@ class ListView(APIView):
         description="인기순, 조회순, 등록순, 연재일순(최신순) 정렬 api",
         tags=["Webtoons list"],
         parameters=[
-        OpenApiParameter(
-            name="sort", description="정렬할 순서 이름", type=str,
-            enum=["popular","view","created","latest"],
-        )
-    ]
+            OpenApiParameter(
+                name="sort",
+                description="정렬할 순서 이름",
+                type=str,
+                enum=["popular", "view", "created", "latest"],
+            )
+        ],
     )
-
     def get(self, request):
-        sort = self.request.query_params.get("sort","popular")
+        sort = self.request.query_params.get("sort", "popular")
 
         if sort == "popular":
             ordering = Webtoon.objects.all().order_by("-like_count")

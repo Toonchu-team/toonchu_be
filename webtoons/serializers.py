@@ -9,6 +9,7 @@ class TagSerializer(serializers.ModelSerializer):
         model = Tag
         fields = ["id", "tag_name", "category"]
 
+
 class WebtoonTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = WebtoonTag
@@ -100,6 +101,7 @@ class WebtoonsSerializer(serializers.ModelSerializer):
         data["tags"] = TagSerializer(tags, many=True).data
         return data
 
+
 class WebtoonGetSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, required=False)
 
@@ -141,7 +143,7 @@ class WebtoonGetSerializer(serializers.ModelSerializer):
                     "is_completed": False,
                     "like_count": 0,
                     "view_count": 0,
-                    "tags": [{"tag_name":"string", "category": "genre"}]
+                    "tags": [{"tag_name": "string", "category": "genre"}],
                 },
                 response_only=True,
                 status_codes=["200"],
@@ -158,6 +160,7 @@ class WebtoonGetSerializer(serializers.ModelSerializer):
     )
     def get(self):
         pass
+
 
 class UserWebtoonSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, required=False)
@@ -201,7 +204,7 @@ class UserWebtoonSerializer(serializers.ModelSerializer):
                     "is_completed": False,
                     "like_count": 0,
                     "view_count": 0,
-                    "tags": [{"tag_name":"string", "category": "genre"}],
+                    "tags": [{"tag_name": "string", "category": "genre"}],
                     "user": 1231353,
                 },
                 response_only=True,
