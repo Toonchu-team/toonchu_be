@@ -2,6 +2,7 @@ from django.db import models
 from multiselectfield import MultiSelectField
 
 from common.models import CommonModel
+from users.models import CustomUser
 
 
 class Webtoon(CommonModel):
@@ -44,9 +45,10 @@ class Webtoon(CommonModel):
     serialization_cycle = models.CharField(
         max_length=20, choices=CYCLE_CHOICES, null=False, blank=False
     )
-    serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES, null=False, blank=False)
+    serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES)
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
+    # user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
 
 class Tag(models.Model):
@@ -62,8 +64,8 @@ class Tag(models.Model):
         ("top/bottom", "00공수"),
         ("etc", "기타"),
     ]
-    tag_name = models.CharField(max_length=20, unique=True)
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    tag_name = models.CharField(max_length=100, unique=True)
+    category = models.CharField(max_length=100, choices=CATEGORY_CHOICES)
 
 
 class WebtoonTag(models.Model):

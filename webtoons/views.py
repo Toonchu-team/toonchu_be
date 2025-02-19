@@ -4,22 +4,23 @@ import requests
 from django.db.models import Count, Q
 from drf_spectacular.utils import (
     OpenApiParameter,
-    OpenApiResponse,
     OpenApiTypes,
     extend_schema,
 )
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Tag, Webtoon, WebtoonTag
+from .models import Tag, Webtoon
 from .serializers import (
     TagSerializer,
     WebtoonsSerializer,
     WebtoonTagSerializer,
+    WebtoonGetSerializer,
+    UserWebtoonSerializer
 )
 
 
@@ -205,4 +206,41 @@ class ListByDayView(APIView):
                 queryset = queryset.filter(is_complated=True)
 
         serializer = WebtoonsSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+class ListView(APIView):
+    permission_classes = [AllowAny]
+    serializer_class = WebtoonGetSerializer
+
+    @extend_schema(
+        summary="웹툰 정렬 리스트 Get",
+        description="인기순, 조회순, 등록순, 연재일순(최신순) 정렬 api",
+        tags=["Webtoons list"],
+        parameters=[
+        OpenApiParameter(
+            name="sort", description="정렬할 순서 이름", type=str,
+            enum=["popular","view","created","latest"],
+        )
+    ]
+    )
+
+    def get(self, request):
+        sort = self.request.query_params.get("sort","popular")
+
+        if sort == "popular":
+            ordering = Webtoon.objects.all().order_by("-like_count")
+
+        elif sort == "view":
+            ordering = Webtoon.objects.all().order_by("-view_count")
+
+        elif sort == "created":
+            ordering = Webtoon.objects.all().order_by("-created_at")
+
+        elif sort == "latest":
+            ordering = Webtoon.objects.all().order_by("-publication_day")
+
+        else:
+            ordering = Webtoon.objects.all().order_by("-like_count")
+
+        serializer = WebtoonGetSerializer(ordering, many=True)
         return Response(serializer.data)
