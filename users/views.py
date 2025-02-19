@@ -91,7 +91,7 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 🔹 로그인 시 user_active가 False이면 로그인 불가 처리
+        #  로그인 시 user_active가 False이면 로그인 불가 처리
         if not user.is_active:
             return Response(
                 {"error": "Your account is inactive. Please contact support."},
@@ -470,8 +470,11 @@ class UserWithdrawView(generics.GenericAPIView):
         user.withdraw_at = timezone.now()
 
         delete_date = timezone.now() + datetime.timedelta(days=50)
+        logger.info(f"user_active수정전:{user.is_active}")
         user.is_active = False
+        logger.info(f"user_active setting -> False로:{user.is_active}")
         user.save()
+        logger.info(f"user_active수정후:{user.is_active}")
 
         request_data = {
             "message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.",
