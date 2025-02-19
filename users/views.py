@@ -6,7 +6,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.db import IntegrityError
+from django.db import IntegrityError, connection
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -470,14 +470,18 @@ class UserWithdrawView(generics.GenericAPIView):
         user.withdraw_at = timezone.now()
 
         delete_date = timezone.now() + datetime.timedelta(days=50)
-        logger.info(f"user_active수정전:{user.is_active}")
-        user.is_active = False
-        logger.info(f"user_active setting -> False로:{user.is_active}")
-        user.save()
-        logger.info(f"user_active수정후:{user.is_active}")
-
-        request_data = {
-            "message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.",
-            "deletion_date": delete_date,
-        }
-        return Response({"data": request_data}, status=status.HTTP_200_OK)
+        # logger.info(f"user_active수정전:{user.is_active}")
+        # user.is_active = False
+        # logger.info(f"user_active setting -> False로:{user.is_active}")
+        # user.save()
+        # logger.info(f"user_active수정후:{user.is_active}")
+        #
+        # request_data = {
+        #     "message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.",
+        #     "deletion_date": delete_date,
+        # }
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE users_customuser SET is_active = %s WHERE id = %s"
+            ), [False, user.id]
+        return Response(status=status.HTTP_200_OK)
