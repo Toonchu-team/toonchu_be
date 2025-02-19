@@ -10,28 +10,6 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ["id", "tag_name", "category"]
 
 
-class WebtoonSearchSerializer(serializers.ModelSerializer):
-    tags = TagSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Webtoon
-        fields = [
-            "id",
-            "title",
-            "author",
-            "thumbnail",
-            "webtoon_url",
-            "platform",
-            "is_new",
-            "is_completed",
-            "serial_day",
-            "tags",
-        ]
-
-    def get_tags(self, obj):
-        return TagSerializer(obj.webtoon_tags.all().values("tag"), many=True).data
-
-
 class WebtoonTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = WebtoonTag
@@ -54,6 +32,8 @@ class WebtoonsSerializer(serializers.ModelSerializer):
             "serialization_cycle",
             "created_at",
             "updated_at",
+            "is_new",
+            "is_completed",
             "tags",
         ]
 
@@ -122,6 +102,123 @@ class WebtoonsSerializer(serializers.ModelSerializer):
         return data
 
 
-class ErrorResponseSerializer(serializers.Serializer):
-    message = serializers.CharField()
-    code = serializers.IntegerField()
+class WebtoonGetSerializer(serializers.ModelSerializer):
+    tags = TagSerializer(many=True, required=False)
+
+    class Meta:
+        model = Webtoon
+        fields = [
+            "title",
+            "author",
+            "thumbnail",
+            "webtoon_url",
+            "publication_day",
+            "platform",
+            "serial_day",
+            "serialization_cycle",
+            "created_at",
+            "updated_at",
+            "is_new",
+            "is_completed",
+            "like_count",
+            "view_count",
+            "tags",
+        ]
+
+    @extend_schema_serializer(
+        examples=[
+            OpenApiExample(
+                "Successful Creation",
+                value={
+                    "id": 1,
+                    "title": "프론트개발자의 일상",
+                    "author": "감자전",
+                    "thumnail_url": "https://example.com/thumbnail.jpg",
+                    "url": "https://webtoon-platform.com/webtoon/1",
+                    "platform": "네이버",
+                    "publication_day": "2025-02-10",
+                    "serial_day": "월요일,목요일",
+                    "serialization_cycle": "1주",
+                    "is_new": False,
+                    "is_completed": False,
+                    "like_count": 0,
+                    "view_count": 0,
+                    "tags": [{"tag_name": "string", "category": "genre"}],
+                },
+                response_only=True,
+                status_codes=["200"],
+            ),
+            OpenApiExample(
+                "Bad Request",
+                value={
+                    "massage": "Invalid input data",
+                },
+                response_only=True,
+                status_codes=["400"],
+            ),
+        ]
+    )
+    def get(self):
+        pass
+
+
+class UserWebtoonSerializer(serializers.ModelSerializer):
+    tags = TagSerializer(many=True, required=False)
+
+    class Meta:
+        model = Webtoon
+        fields = [
+            "title",
+            "author",
+            "thumbnail",
+            "webtoon_url",
+            "publication_day",
+            "platform",
+            "serial_day",
+            "serialization_cycle",
+            "created_at",
+            "updated_at",
+            "is_new",
+            "is_completed",
+            "like_count",
+            "view_count",
+            "tags",
+            "user",
+        ]
+
+    @extend_schema_serializer(
+        examples=[
+            OpenApiExample(
+                "Successful Creation",
+                value={
+                    "id": 1,
+                    "title": "프론트개발자의 일상",
+                    "author": "감자전",
+                    "thumnail_url": "https://example.com/thumbnail.jpg",
+                    "url": "https://webtoon-platform.com/webtoon/1",
+                    "platform": "네이버",
+                    "publication_day": "2025-02-10",
+                    "serial_day": "월요일,목요일",
+                    "serialization_cycle": "1주",
+                    "is_new": False,
+                    "is_completed": False,
+                    "like_count": 0,
+                    "view_count": 0,
+                    "tags": [{"tag_name": "string", "category": "genre"}],
+                    "user": 1231353,
+                },
+                response_only=True,
+                status_codes=["200"],
+            ),
+            OpenApiExample(
+                "Bad Request",
+                value={
+                    "massage": "Invalid input data",
+                },
+                response_only=True,
+                status_codes=["400"],
+            ),
+        ]
+    )
+    def get(self):
+        pass
