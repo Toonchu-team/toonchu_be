@@ -1,10 +1,19 @@
 from django.urls import path
 
-from .views import TagListView, TagSearchView, WebtoonSearchView, WebtoonView
+from .views import (
+    ListByDayView,
+    ListByTagView,
+    ListView,
+    SearchByIntegrateView,
+    SearchByTagView,
+    WebtoonCreateView,
+)
 
 urlpatterns = [
-    path("", WebtoonView.as_view(), name="webtoons-post"),
-    path("search", WebtoonSearchView.as_view(), name="webtoons-search"),
-    path("search/tag", TagSearchView.as_view(), name="webtoons-tag-list"),
-    path("tag", TagListView.as_view(), name="webtoons-tag"),
+    path("request/", WebtoonCreateView.as_view(), name="webtoons-create"),
+    path("search", SearchByIntegrateView.as_view(), name="webtoons-search"),
+    path("search/tag", SearchByTagView.as_view(), name="webtoons-tag-list"),
+    path("list/", ListByDayView.as_view(), name="webtoons-day-list"),
+    path("list", ListView.as_view(), name="webtoons-sort"),
+    path("tag", ListByTagView.as_view(), name="webtoons-tag"),
 ]
