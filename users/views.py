@@ -427,7 +427,7 @@ class UserProfileView(generics.GenericAPIView):
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             )
 
-            file_name = f"users/profile/{user.id}_{profile_img.name}"
+            file_name = f"users/profile/{user.id}_{profile_img.name}"  # ncp -> 버킷 -> users폴더에 이미지 저장
             s3.upload_fileobj(
                 profile_img,
                 settings.AWS_STORAGE_BUCKET_NAME,
