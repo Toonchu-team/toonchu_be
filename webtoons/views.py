@@ -238,17 +238,17 @@ class ListView(APIView):
                 description="tag id (선택사항)",
                 type=int,
                 many=True,
-            )
+            ),
         ],
     )
     def get(self, request):
         # 순서 정렬
         sort = self.request.query_params.get("sort", "popular")
-        sort_mapping ={
-            "popular" : "-like_count",
-            "view" : "-view_count",
-            "created" : "-created_at",
-            "latest" : "-publication_day"
+        sort_mapping = {
+            "popular": "-like_count",
+            "view": "-view_count",
+            "created": "-created_at",
+            "latest": "-publication_day",
         }
         ordering = sort_mapping.get(sort, "-like_count")
         tag_ids = request.GET.getlist("tags.id")
@@ -256,12 +256,15 @@ class ListView(APIView):
         webtoons = Webtoon.objects.all()
 
         if tag_ids:
-            webtoons = Webtoon.objects.filter(
-                tags__id__in=tag_ids
-            ).annotate(matching_tags=Count(
-                "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
+            webtoons = (
+                Webtoon.objects.filter(tags__id__in=tag_ids)
+                .annotate(
+                    matching_tags=Count(
+                        "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
+                    )
+                )
+                .filter(matching_tags=len(tag_ids))
             )
-            ).filter(matching_tags=len(tag_ids))
 
         webtoons = webtoons.order_by(ordering)
 
