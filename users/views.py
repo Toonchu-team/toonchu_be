@@ -91,11 +91,11 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        #  로그인 시 user_active가 False이면 로그인 불가 처리
+        #  로그인 시 user_active가 False or 0 이면 로그인 불가 처리
         if not user.is_active:
             return Response(
                 {"error": "Your account is inactive. Please contact support."},
-                status=status.HTTP_403_FORBIDDEN,  # 403 상태 코드 반환
+                status=status.HTTP_400_BAD_REQUEST,  # 403 상태 코드 반환
             )
 
         # JWT 토큰 생성
@@ -319,7 +319,7 @@ class LogoutView(APIView):
     serializer_class = LogoutSerializer
 
     def post(self, request):
-        raise Exception("1123")
+        # raise Exception("1123")
         refresh_token = request.data.get("refresh_token")
         logger.info(f"Received refresh_token:{refresh_token}")
         logger.info(f"User ID: {request.user.id}")
