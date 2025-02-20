@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 
+import boto3
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -418,15 +419,24 @@ class UserProfileView(generics.GenericAPIView):
         user = self.request.user
         profile_img = self.request.FILES.get("profile_img")
         if profile_img:
-            upload_dir = "/app/media/profile"
-            os.makedirs(upload_dir, exist_ok=True)
-            file_path = os.path.join(upload_dir, f"{user.id}_{profile_img.name}")
+            # NCP Object Storage에 파일 업로드
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            )
 
-            with open(file_path, "wb+") as destination:
-                for chunk in profile_img.chunks():
-                    destination.write(chunk)
+            file_name = f"profile/{user.id}_{profile_img.name}"
+            s3.upload_fileobj(
+                profile_img,
+                settings.AWS_STORAGE_BUCKET_NAME,
+                file_name,
+                ExtraArgs={"ACL": "public-read"},
+            )
 
-            user.profile_img = f"/media/profile/{user.id}_{profile_img.name}"
+            # 프로필 이미지 URL 설정
+            user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
 
         user.is_updated = timezone.now()
         user.save()
