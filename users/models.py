@@ -49,6 +49,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_updated = models.DateTimeField(null=True, blank=True)
     is_created = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
     withdraw_at = models.DateTimeField(null=True, blank=True)
 
     def set_un_user_password(self):

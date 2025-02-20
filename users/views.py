@@ -469,20 +469,12 @@ class UserWithdrawView(generics.GenericAPIView):
             )
 
         user.withdraw_at = timezone.now()
-
         delete_date = timezone.now() + datetime.timedelta(days=50)
-        # logger.info(f"user_active수정전:{user.is_active}")
-        # user.is_active = False
-        # logger.info(f"user_active setting -> False로:{user.is_active}")
-        # user.save()
-        # logger.info(f"user_active수정후:{user.is_active}")
-        #
-        # request_data = {
-        #     "message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.",
-        #     "deletion_date": delete_date,
-        # }
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "UPDATE users_customuser SET is_active = %s WHERE id = %s"
-            ), [False, user.id]
-        return Response(status=status.HTTP_200_OK)
+        user.is_active = False  # is_active 필드 값을 False로 설정
+        user.save()  # 변경 사항을 데이터베이스에 저장
+
+        request_data = {
+            "message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.",
+            "deletion_date": delete_date,
+        }
+        return Response({"data": request_data}, status=status.HTTP_200_OK)
