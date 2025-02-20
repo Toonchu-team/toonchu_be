@@ -103,7 +103,7 @@ class WebtoonsSerializer(serializers.ModelSerializer):
 
 
 class WebtoonGetSerializer(serializers.ModelSerializer):
-    tags = TagSerializer(many=True, required=False)
+    tags = TagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Webtoon

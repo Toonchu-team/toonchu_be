@@ -38,6 +38,7 @@ CUSTOM_APPS = [
     "users",
     "webtoons",
     "bookmark",
+    "corsheaders",
 ]
 
 SYSTEM_APPS = [
@@ -60,7 +61,7 @@ THIRD_PARTY_APPS = [
 INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS  # + ['corsheaders']
 
 MIDDLEWARE = [
-    # "corsheaders.middleware.CorsMiddleware", 설치가 안됨 잠시 주석처리함
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -222,7 +223,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
-    "https://toonchu-fe.vercel.app/",
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
