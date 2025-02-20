@@ -212,7 +212,7 @@ class ListByDayView(APIView):
                 queryset = queryset.filter(is_new=True)
 
             elif status == "completed":
-                queryset = queryset.filter(is_complated=True)
+                queryset = queryset.filter(is_completed=True)
 
         serializer = WebtoonsSerializer(queryset, many=True)
         return Response(serializer.data)
@@ -220,7 +220,7 @@ class ListByDayView(APIView):
 
 class ListView(APIView):
     permission_classes = [AllowAny]
-    serializer_class = WebtoonGetSerializer
+    serializer_class = WebtoonsSerializer
 
     @extend_schema(
         summary="웹툰 정렬 리스트 Get",
@@ -232,26 +232,38 @@ class ListView(APIView):
                 description="정렬할 순서 이름",
                 type=str,
                 enum=["popular", "view", "created", "latest"],
+            ),
+            OpenApiParameter(
+                name="id",
+                description="tag id (선택사항)",
+                type=int,
+                many=True,
             )
         ],
     )
     def get(self, request):
+        # 순서 정렬
         sort = self.request.query_params.get("sort", "popular")
+        sort_mapping ={
+            "popular" : "-like_count",
+            "view" : "-view_count",
+            "created" : "-created_at",
+            "latest" : "-publication_day"
+        }
+        ordering = sort_mapping.get(sort, "-like_count")
+        tag_ids = request.GET.getlist("tags.id")
 
-        if sort == "popular":
-            ordering = Webtoon.objects.all().order_by("-like_count")
+        webtoons = Webtoon.objects.all()
 
-        elif sort == "view":
-            ordering = Webtoon.objects.all().order_by("-view_count")
+        if tag_ids:
+            webtoons = Webtoon.objects.filter(
+                tags__id__in=tag_ids
+            ).annotate(matching_tags=Count(
+                "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
+            )
+            ).filter(matching_tags=len(tag_ids))
 
-        elif sort == "created":
-            ordering = Webtoon.objects.all().order_by("-created_at")
+        webtoons = webtoons.order_by(ordering)
 
-        elif sort == "latest":
-            ordering = Webtoon.objects.all().order_by("-publication_day")
-
-        else:
-            ordering = Webtoon.objects.all().order_by("-like_count")
-
-        serializer = WebtoonGetSerializer(ordering, many=True)
+        serializer = WebtoonsSerializer(webtoons, many=True)
         return Response(serializer.data)
