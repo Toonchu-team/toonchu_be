@@ -470,7 +470,7 @@ class UserWithdrawView(generics.GenericAPIView):
 
         user.withdraw_at = timezone.now()
         delete_date = timezone.now() + datetime.timedelta(days=50)
-        user.is_active = False  # is_active 필드 값을 False로 설정
+        user.is_active = 0  # is_active 필드 값을 False = 0으로 설정
         user.save()  # 변경 사항을 데이터베이스에 저장
 
         request_data = {
