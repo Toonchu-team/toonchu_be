@@ -10,11 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import sys
 from datetime import timedelta
 from pathlib import Path
 
 import boto3
 from dotenv import dotenv_values
+from storages.backends import s3
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -244,16 +246,77 @@ GOOGLE_OAUTH2_SCOPE = ["email", "profile"]  # 새로운 설정 추가
 # s3.delete_file(Bucket='my_bucket', Key='myfile.txt')
 
 # s3 = boto3.client('s3', endpoint_url='https://your_endpoint_url', aws_access_key_id='YOUR_ACCESS_KEY', aws_secret_access_key='YOUR_SECRET_KEY')
-
+#
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 
 AWS_ACCESS_KEY_ID = ENV.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = ENV.get("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = "toonchu"
+AWS_STORAGE_BUCKET_NAME = ENV.get("AWS_STORAGE_BUCKET_NAME")
 AWS_S3_REGION_NAME = "ap-northeast-2"  # 한국 리전
-AWS_S3_ENDPOINT_URL = "https://kr.object.ncloudstorage.com"
+AWS_S3_ENDPOINT_URL = ENV.get("AWS_S3_ENDPOINT_URL")
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
 }
 AWS_DEFAULT_ACL = "public-read"
 AWS_QUERYSTRING_AUTH = False  # 공개적으로 접근 가능
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
+            "datefmt": "%d/%b/%Y %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "console.info": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+        "console.error": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+        "logger.info": {
+            "level": "INFO",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "logger.warning": {
+            "level": "WARNING",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "logger.error": {
+            "level": "ERROR",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+    },
+}

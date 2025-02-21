@@ -1,25 +1,17 @@
-from .base import *
+import boto3
+from dotenv import load_dotenv
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+from config.settings.base import ENV
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    ENV.get("DB_HOST"),
-]
+# 환경 변수 로드
+load_dotenv()
 
-# CORS 설정 (개발 환경)
-CORS_ALLOW_ALL_ORIGINS = True  # 개발 환경에서는 모든 요청 허용
-CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE"]
-CORS_ALLOW_HEADERS = ["*"]
-
-
+# Boto3 클라이언트 초기화
 s3 = boto3.client(
     "s3",
     endpoint_url="https://kr.object.ncloudstorage.com",
-    aws_access_key_id="YOUR_ACCESS_KEY_ID",
-    aws_secret_access_key="YOUR_SECRET_ACCESS_KEY",
+    aws_access_key_id=ENV.get("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=ENV.get("AWS_SECRET_ACCESS_KEY"),
 )
 
 # CORS 설정 JSON
@@ -36,5 +28,7 @@ cors_configuration = {
 }
 
 # 버킷에 CORS 적용
-bucket_name = "YOUR_BUCKET_NAME"
+bucket_name = ENV.get("AWS_STORAGE_BUCKET_NAME")
 response = s3.put_bucket_cors(Bucket=bucket_name, CORSConfiguration=cors_configuration)
+
+print("CORS 설정 완료:", response)

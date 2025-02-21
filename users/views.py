@@ -4,6 +4,7 @@ import os
 
 import boto3
 import requests
+from botocore.config import Config
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -417,7 +418,6 @@ class UserProfileView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         serializer = self.get_serializer(self.get_object())
         data = serializer.data
-        User.is_hidden = 0
         return Response(
             {
                 "message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다",
@@ -464,20 +464,27 @@ class UserProfileView(generics.GenericAPIView):
         )
 
     def perform_update(self, serializer):
+        logger.info("Performing update...")
+
         user = self.request.user
         profile_img = self.request.FILES.get("profile_img")
+        logger.info("Profile image: %s", profile_img)
 
         if profile_img and isinstance(profile_img, InMemoryUploadedFile):
-            logger.info("Uploading file to NCP: %s", profile_img.name)
+            logger.info("Uploading file: %s", profile_img.name)
 
+            # boto3.client() 수정: signature_version="s3v4" 추가
             s3 = boto3.client(
                 "s3",
                 endpoint_url=settings.AWS_S3_ENDPOINT_URL,
                 aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                config=Config(signature_version="s3v4"),  # ← 여기 추가!
             )
 
             file_name = f"users/profile/{user.id}_{profile_img.name}"
+            logger.info("File name to upload: %s", file_name)
+
             try:
                 s3.upload_fileobj(
                     profile_img,
@@ -485,16 +492,18 @@ class UserProfileView(generics.GenericAPIView):
                     file_name,
                     ExtraArgs={"ACL": "public-read"},
                 )
+                # 업로드된 이미지 URL 저장
                 user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
                 logger.info("File uploaded successfully: %s", user.profile_img)
             except Exception as e:
-                logger.error("Failed to upload file to NCP: %s", e)
+                logger.error("File upload error: %s", e)
         else:
-            logger.warning("No valid profile image found in request.FILES")
+            logger.warning("No valid profile image found")
 
         user.is_updated = timezone.now()
         user.save()
         serializer.save()
+        logger.info("Update complete")
 
 
 class UserWithdrawView(generics.GenericAPIView):
