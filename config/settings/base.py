@@ -33,7 +33,13 @@ SECRET_KEY = ENV.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "https://toonchu-fe.vercel.app/",
+    "http://be.toonchu.kro.kr/",
+    ENV.get("DB_HOST"),
+]
 
 # Application definition
 CUSTOM_APPS = [

@@ -5,12 +5,12 @@ import boto3
 from .base import *
 
 DEBUG = True
-
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    os.getenv("DB_HOST"),
-]
+#
+# ALLOWED_HOSTS = [
+#     "localhost",
+#     "127.0.0.1",
+#     os.getenv("DB_HOST"),
+# ]
 
 CORS_ALLOW_ALL_ORIGINS = True  # 개발 환경에서만 사용
 
