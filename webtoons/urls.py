@@ -7,6 +7,7 @@ from .views import (
     SearchByIntegrateView,
     SearchByTagView,
     WebtoonCreateView,
+    WebtoonApprovalView
 )
 
 urlpatterns = [
@@ -16,4 +17,5 @@ urlpatterns = [
     path("list/", ListByDayView.as_view(), name="webtoons-day-list"),
     path("list", ListView.as_view(), name="webtoons-sort"),
     path("tag", ListByTagView.as_view(), name="webtoons-tag"),
+    path("<int:pk>/approve", WebtoonApprovalView.as_view(), name="webtoons-approve"),
 ]
