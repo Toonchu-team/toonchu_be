@@ -7,6 +7,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import IntegrityError, connection
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
@@ -434,14 +435,14 @@ class UserProfileView(generics.GenericAPIView):
             OpenApiParameter(
                 name="nick_name",
                 type=OpenApiTypes.STR,
-                location="form",  # 수정
+                location="form",
                 description="수정할 닉네임",
                 required=False,
             ),
             OpenApiParameter(
                 name="profile_img",
                 type=OpenApiTypes.BINARY,
-                location="form",  # 수정
+                location="form",
                 description="수정할 프로필 이미지",
                 required=False,
             ),
@@ -464,8 +465,10 @@ class UserProfileView(generics.GenericAPIView):
     def perform_update(self, serializer):
         user = self.request.user
         profile_img = self.request.FILES.get("profile_img")
-        if profile_img:
-            # NCP Object Storage에 파일 업로드
+
+        if profile_img and isinstance(profile_img, InMemoryUploadedFile):
+            logger.info("Uploading file to NCP: %s", profile_img.name)
+
             s3 = boto3.client(
                 "s3",
                 endpoint_url=settings.AWS_S3_ENDPOINT_URL,
@@ -474,14 +477,19 @@ class UserProfileView(generics.GenericAPIView):
             )
 
             file_name = f"users/profile/{user.id}_{profile_img.name}"
-            s3.upload_fileobj(
-                profile_img,
-                settings.AWS_STORAGE_BUCKET_NAME,
-                file_name,
-                ExtraArgs={"ACL": "public-read"},  # 권한 수정
-            )
-
-            user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+            try:
+                s3.upload_fileobj(
+                    profile_img,
+                    settings.AWS_STORAGE_BUCKET_NAME,
+                    file_name,
+                    ExtraArgs={"ACL": "public-read"},
+                )
+                user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+                logger.info("File uploaded successfully: %s", user.profile_img)
+            except Exception as e:
+                logger.error("Failed to upload file to NCP: %s", e)
+        else:
+            logger.warning("No valid profile image found in request.FILES")
 
         user.is_updated = timezone.now()
         user.save()

@@ -255,5 +255,5 @@ AWS_S3_ENDPOINT_URL = "https://kr.object.ncloudstorage.com"
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
 }
-AWS_DEFAULT_ACL = "FULL_CONTROL"
+AWS_DEFAULT_ACL = "public-read"
 AWS_QUERYSTRING_AUTH = False  # 공개적으로 접근 가능
