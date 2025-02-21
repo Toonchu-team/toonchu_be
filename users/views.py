@@ -13,10 +13,13 @@ from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.serializers import (
@@ -24,6 +27,8 @@ from users.serializers import (
     NicknameCheckSerializer,
     UserProfileSerializer,
 )
+
+from .utils import RendomNickName
 
 User = get_user_model()
 
@@ -64,13 +69,18 @@ class SocialLoginView(APIView):
             )
         logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
 
+        # 닉네임이 없는 경우 랜덤 닉네임 생성
+        nick_name = user_info.get("nick_name")
+        if not nick_name:  # 닉네임이 None 또는 빈 값이면
+            nick_name = RendomNickName()  # 랜덤 닉네임 생성
+
         # 사용자 정보로 DB 조회 및 저장
         try:
             user, created = User.objects.get_or_create(
                 email=user_info["email"],
                 provider=provider,
                 defaults={
-                    "nick_name": user_info.get("name"),
+                    "nick_name": nick_name,  # 닉네임 저장
                     "profile_img": user_info.get("profile_image"),
                 },
             )
@@ -79,6 +89,13 @@ class SocialLoginView(APIView):
             return Response(
                 {"error": "User already exists or database constraint violated"},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        #  로그인 시 user_active가 False이면 로그인 불가 처리
+        if not user.is_active:
+            return Response(
+                {"error": "Your account is inactive. Please contact support."},
+                status=status.HTTP_403_FORBIDDEN,  # 403 상태 코드 반환
             )
 
         # JWT 토큰 생성
@@ -265,38 +282,81 @@ class TokenRefreshView(APIView):
             )
 
 
-class LogoutView(APIView):
-    authentication_classes = []  # 인증 클래스 제거
-    permission_classes = []  # 권한 클래스 제거
-
-    def post(self, request):
-        try:
-            refresh_token = request.data.get("refresh_token")
-            if not refresh_token:
-                auth_header = request.headers.get("Authorization")
-                if auth_header and auth_header.startswith("Bearer "):
-                    refresh_token = auth_header.split(" ")[1]
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                return Response(
-                    {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-                )
-            else:
-                return Response(
-                    {"error": "리프레시 토큰이 제공되지 않았습니다."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+# class LogoutView(APIView):
+#     authentication_classes = [JWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+#
+#     def post(self, request):
+#         print(request.data)
+#         try:
+#             refresh_token = request.data.get("refresh_token")
+#
+#             if refresh_token:
+#                 serializer = LogoutSerializer(data=request.data)
+#                 if serializer.is_valid():
+#                     token = serializer.data.get("refresh_token")
+#                     token.blacklist()
+#                     logger.debug(f"Token blacklist: {token}")
+#
+#                 return Response(
+#                     {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+#                 )
+#             else:
+#                 return Response(
+#                     {"error": "리프레시 토큰이 제공되지 않았습니다."},
+#                     status=status.HTTP_400_BAD_REQUEST,
+#                 )
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 CustomUser = get_user_model()
 
 
+class LogoutView(APIView):
+    # authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+    serializer_class = LogoutSerializer
+
+    def post(self, request):
+        raise Exception("1123")
+        refresh_token = request.data.get("refresh_token")
+        logger.info(f"Received refresh_token:{refresh_token}")
+        logger.info(f"User ID: {request.user.id}")
+
+        if not refresh_token:
+            return Response(
+                {"error": "리프레시 토큰이 제공되지 않았습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+            logger.info("RefreshToken 객체 생성 성공!")
+            token.blacklist()
+            logger.info("RefreshToken 블랙리스트 추가 성공!")
+
+            # 블랙리스트 등록 여부 직접 확인
+            # is_blacklisted = BlacklistedToken.objects.filter(token=str(token)).exists()
+            # if is_blacklisted:
+            #     logger.info("토큰이 블랙리스트에 정상적으로 추가되었습니다.")
+            # else:
+            #     logger.warning("토큰이 블랙리스트에 추가되지 않았습니다!")
+
+            return Response(
+                {"message": "로그아웃 되었습니다.", "user_id": request.user.id},
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            logger.error(f"Logout error: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserProfileSerializer
+    # parser_classes = (MultiPartParser, FormParser)
     queryset = User.objects.all()
 
     def get_object(self):
@@ -342,9 +402,7 @@ class UserProfileView(generics.GenericAPIView):
             ),
         ],
     )
-    def post(self, request, *args, **kwargs):  # POST 메서드만 처리
-        if request.method not in ["POST"]:
-            return HttpResponseNotAllowed(["POST"])
+    def patch(self, request, *args, **kwargs):
 
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
@@ -413,8 +471,11 @@ class UserWithdrawView(generics.GenericAPIView):
         user.withdraw_at = timezone.now()
 
         delete_date = timezone.now() + datetime.timedelta(days=50)
+        logger.info(f"user_active수정전:{user.is_active}")
         user.is_active = False
+        logger.info(f"user_active setting -> False로:{user.is_active}")
         user.save()
+        logger.info(f"user_active수정후:{user.is_active}")
 
         request_data = {
             "message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.",

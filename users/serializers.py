@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MaxLengthValidator, MinLengthValidator
+from jwt.exceptions import InvalidTokenError
 from rest_framework import serializers
+from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
@@ -55,6 +57,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
+
+    def validate(self, attrs):
+        try:
+            RefreshToken(attrs["refresh_token"])
+            return attrs
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
 
 
 class NicknameCheckSerializer(serializers.Serializer):

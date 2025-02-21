@@ -1,36 +1,31 @@
 import json
 import os
-from copy import deepcopy
-from unicodedata import category
 
 import requests
 from django.db.models import Count, Q
 from drf_spectacular.utils import (
     OpenApiParameter,
-    OpenApiResponse,
     OpenApiTypes,
     extend_schema,
 )
-from rest_framework import permissions, status
-from rest_framework.decorators import api_view
-from rest_framework.exceptions import ValidationError
+from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Tag, Webtoon, WebtoonTag
+from .models import Tag, Webtoon
 from .serializers import (
-    ErrorResponseSerializer,
     TagSerializer,
-    WebtoonSearchSerializer,
+    UserWebtoonSerializer,
+    WebtoonGetSerializer,
     WebtoonsSerializer,
     WebtoonTagSerializer,
 )
 
 
-class WebtoonView(CreateAPIView):
+class WebtoonCreateView(CreateAPIView):
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = WebtoonsSerializer
@@ -38,14 +33,14 @@ class WebtoonView(CreateAPIView):
     @extend_schema(
         summary="웹툰 작품 등록",
         description="웹툰 작품을 등록 신청하는 API입니다.",
-        tags=["Webtoons post"],
+        tags=["Webtoons"],
         request=WebtoonsSerializer,
         responses={
             201: WebtoonsSerializer,
             400: OpenApiTypes.OBJECT,
         },
     )
-    def create(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         data = {key: value for key, value in request.data.items()}
         data["tags"] = json.loads(request.data["tags"])
         serializer = self.get_serializer(data=data)
@@ -56,27 +51,27 @@ class WebtoonView(CreateAPIView):
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
 
-    def get(self, request):
-        webtoons = Webtoon.objects.all()
-        serializer = WebtoonsSerializer(webtoons, many=True)
-        return Response(serializer.data)
 
-
-class WebtoonSearchView(APIView):
+class SearchByIntegrateView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name="provider", description="웹툰 플랫폼", type=str),
+            OpenApiParameter(
+                name="provider",
+                description="웹툰 플랫폼",
+                type=str,
+                enum=["naver", "kakaowebtoon", "kakaopage", "others"],
+            ),
             OpenApiParameter(name="tag", description="웹툰 태그", type=str),
             OpenApiParameter(name="term", description="검색어", type=str),
         ],
         summary="웹툰 검색",
-        description="웹툰 검색 api입니다.",
+        description="웹툰 통합 검색 api입니다. 플랫폼별, 태그별, 검색어로 검색합니다.",
         tags=["Webtoons Search"],
-        request=WebtoonSearchSerializer,
+        request=WebtoonsSerializer,
         responses={
-            200: WebtoonSearchSerializer(many=True),
+            200: WebtoonsSerializer(many=True),
             400: OpenApiTypes.OBJECT,
         },
     )
@@ -102,17 +97,17 @@ class WebtoonSearchView(APIView):
 
         queryset = queryset.prefetch_related("webtoon_tags__tag")
 
-        serializer = WebtoonSearchSerializer(queryset, many=True)
+        serializer = WebtoonsSerializer(queryset, many=True)
         return Response(serializer.data)
 
 
-class TagListView(APIView):
+class ListByTagView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
         summary="전체 태그 목록",
         description="태그 전체 목록 API",
-        tags=["tags"],
+        tags=["Webtoons list"],
         request=TagSerializer,
         parameters=[
             OpenApiParameter(name="category", description="카테고리 이름", type=str),
@@ -134,18 +129,19 @@ class TagListView(APIView):
         return Response(serializer.data)
 
 
-class TagSearchView(APIView):
+class SearchByTagView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
-        summary="태그 ID 별 기반 웸툰 검색",
+        summary="태그 ID 별 기반 웹툰 검색",
         description="여러 태그 ID 기반으로 태그가 포함된 웹툰 검색",
+        tags=["Webtoons Search"],
         parameters=[
             OpenApiParameter(name="id", description="태그 아이디", type=int, many=True),
         ],
         request=WebtoonTagSerializer,
         responses={
-            200: WebtoonTagSerializer(many=True),
+            200: WebtoonsSerializer(many=True),
             400: OpenApiTypes.OBJECT,
         },
     )
@@ -163,7 +159,7 @@ class TagSearchView(APIView):
             )
             .filter(matching_tags=len(tag_ids))
         )
-        # 웹툰과 연결되는 태그 수 카운팅
+        # 웹툰과 연결 되어 있는 태그 수 카운팅
 
         # for tag_id in tag_id:
         #     try:
@@ -174,4 +170,100 @@ class TagSearchView(APIView):
         #     except Tag.DoesNotExist:
         #         return Response({"error":"유효하지 않은 ID입니다"},status=status.HTTP_400_BAD_REQUEST)
         serializer = WebtoonsSerializer(filtered_webtoons, many=True)
+        return Response(serializer.data)
+
+
+class ListByDayView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="요일별/연재유무별 웹툰 리스트",
+        description="요일별, 신작, 연재유무별 로 웹툰 리스트 표현",
+        tags=["Webtoons list"],
+        parameters=[
+            OpenApiParameter(
+                name="day",
+                description="요일",
+                type=str,
+                enum=["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+            ),
+            OpenApiParameter(
+                name="status",
+                description="신작/완결/전체",
+                type=str,
+                enum=["all", "new", "completed"],
+            ),
+        ],
+        request=WebtoonsSerializer,
+        responses={
+            200: WebtoonsSerializer(many=True),
+            400: OpenApiTypes.OBJECT,
+        },
+    )
+    def get(self, request):
+        day = request.query_params.get("day", "")
+        status = request.query_params.get("status")
+        queryset = Webtoon.objects.all()
+
+        if day:
+            queryset = queryset.filter(serial_day__iexact=day)
+
+            if status == "new":
+                queryset = queryset.filter(is_new=True)
+
+            elif status == "completed":
+                queryset = queryset.filter(is_completed=True)
+
+        serializer = WebtoonsSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class ListView(APIView):
+    permission_classes = [AllowAny]
+    serializer_class = WebtoonsSerializer
+
+    @extend_schema(
+        summary="웹툰 정렬 리스트 Get",
+        description="인기순, 조회순, 등록순, 연재일순(최신순) 정렬 api",
+        tags=["Webtoons list"],
+        parameters=[
+            OpenApiParameter(
+                name="sort",
+                description="정렬할 순서 이름",
+                type=str,
+                enum=["popular", "view", "created", "latest"],
+            ),
+            OpenApiParameter(
+                name="id",
+                description="tag id (선택사항)",
+                type=int,
+                many=True,
+            )
+        ],
+    )
+    def get(self, request):
+        # 순서 정렬
+        sort = self.request.query_params.get("sort", "popular")
+        sort_mapping ={
+            "popular" : "-like_count",
+            "view" : "-view_count",
+            "created" : "-created_at",
+            "latest" : "-publication_day"
+        }
+        ordering = sort_mapping.get(sort, "-like_count")
+        tag_ids = request.GET.getlist("tags.id")
+
+        webtoons = Webtoon.objects.all()
+
+        if tag_ids:
+            webtoons = Webtoon.objects.filter(
+                tags__id__in=tag_ids
+            ).annotate(matching_tags=Count(
+                "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
+            )
+            ).filter(matching_tags=len(tag_ids))
+
+        webtoons = webtoons.order_by(ordering)
+
+        serializer = WebtoonsSerializer(webtoons, many=True)
         return Response(serializer.data)
