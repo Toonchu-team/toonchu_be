@@ -3,6 +3,7 @@ import os
 
 import requests
 from django.db.models import Count, Q
+from drf_spectacular import openapi
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
@@ -11,15 +12,14 @@ from drf_spectacular.utils import (
 from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.generics import UpdateAPIView
 
 from .models import Tag, Webtoon
 from .serializers import (
     TagSerializer,
-    UserWebtoonSerializer,
-    WebtoonGetSerializer,
     WebtoonsSerializer,
     WebtoonTagSerializer,
 )
@@ -238,17 +238,17 @@ class ListView(APIView):
                 description="tag id (선택사항)",
                 type=int,
                 many=True,
-            )
+            ),
         ],
     )
     def get(self, request):
         # 순서 정렬
         sort = self.request.query_params.get("sort", "popular")
-        sort_mapping ={
-            "popular" : "-like_count",
-            "view" : "-view_count",
-            "created" : "-created_at",
-            "latest" : "-publication_day"
+        sort_mapping = {
+            "popular": "-like_count",
+            "view": "-view_count",
+            "created": "-created_at",
+            "latest": "-publication_day",
         }
         ordering = sort_mapping.get(sort, "-like_count")
         tag_ids = request.GET.getlist("tags.id")
@@ -256,14 +256,58 @@ class ListView(APIView):
         webtoons = Webtoon.objects.all()
 
         if tag_ids:
-            webtoons = Webtoon.objects.filter(
-                tags__id__in=tag_ids
-            ).annotate(matching_tags=Count(
-                "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
+            webtoons = (
+                Webtoon.objects.filter(tags__id__in=tag_ids)
+                .annotate(
+                    matching_tags=Count(
+                        "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
+                    )
+                )
+                .filter(matching_tags=len(tag_ids))
             )
-            ).filter(matching_tags=len(tag_ids))
 
         webtoons = webtoons.order_by(ordering)
 
         serializer = WebtoonsSerializer(webtoons, many=True)
+        return Response(serializer.data)
+
+class WebtoonApprovalView(UpdateAPIView):
+    permission_classes = [AllowAny]
+    queryset = Webtoon.objects.all()
+    serializer_class = WebtoonsSerializer
+
+    @extend_schema(
+        summary="웹툰 등록 승인/거절 api",
+        description="웹툰의 승인 상태를 변경하는 api",
+        parameters=[
+            OpenApiParameter(
+                name="action",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="'approve' 또는 'reject'"
+            )
+        ],
+        request=OpenApiTypes.NONE,
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT
+        }
+    )
+
+    def petch(self, request, pk):
+        webtoon = self.get_object()
+        action = request.data.get("action")
+
+        action_mapping = {
+            "approve": {"status":"approved", "message":"웹툰 등록이 완료됐다냥!"},
+            "reject": {"status":"rejected", "message":"웹툰 등록 신청이 거절 됐다냥.."}
+        }
+        webtoon.approval_status = action_mapping[action]["status"]
+        webtoon.save(update_fields=["approval_status"])
+
+        return Response({"message":action_mapping[action]["message"]}, status=status.HTTP_200_OK)
+
+    def get(self, request, pk):
+        webtoon = self.get_object()
+        serializer = WebtoonsSerializer(webtoon)
         return Response(serializer.data)

@@ -18,6 +18,8 @@ class WebtoonTagSerializer(serializers.ModelSerializer):
 
 class WebtoonsSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, required=False)
+    like_count = serializers.IntegerField(read_only=True)
+    view_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Webtoon
@@ -34,6 +36,9 @@ class WebtoonsSerializer(serializers.ModelSerializer):
             "updated_at",
             "is_new",
             "is_completed",
+            "like_count",
+            "view_count",
+            "is_approved",
             "tags",
         ]
 
@@ -67,33 +72,67 @@ class WebtoonsSerializer(serializers.ModelSerializer):
     )
     def create(self, validated_data):
         tags = validated_data.pop("tags", [])
+        validated_data["like_count"] = 0
+        validated_data["view_count"] = 0
         webtoon = Webtoon.objects.create(**validated_data)
 
         if tags:
             tag_names = [tag["tag_name"] for tag in tags]
-            existing_tags = [
-                {"tag_name": tag.tags_name, "category": tag.category}
-                for tag in Tag.objects.filter(tag_name__in=tag_names)
+
+            # 기존 태그 조회 (딕셔너리로 변환하지 않음)
+            existing_tags = {
+                tag.tag_name: tag for tag in Tag.objects.filter(tag_name__in=tag_names)
+            }
+
+            # 새로운 태그만 필터링 (딕셔너리 비교 대신, 객체 비교)
+            new_tags = [
+                Tag(tag_name=tag["tag_name"], category=tag["category"])
+                for tag in tags
+                if tag["tag_name"] not in existing_tags
             ]
 
-            new_tags = [tag for tag in tags if tag not in existing_tags]
+            # 새 태그 DB에 저장
+            Tag.objects.bulk_create(new_tags)
 
-            Tag.objects.bulk_create(
-                [
-                    Tag(tag_name=tag["tag_name"], category=tag["category"])
-                    for tag in new_tags
-                ]
-            )  # 새 태그 생성
+            # 기존 + 새로운 태그 조회하여 저장
+            all_tags = Tag.objects.filter(tag_name__in=tag_names)
 
-            # 최신 태그 리스트 가져오기 (새로 생성된 태그 포함)
-            all_tags = [tag for tag in Tag.objects.filter(tag_name__in=tag_names)]
+            # WebtoonTag 객체 생성 후 bulk_create로 저장
+            webtoon_tags = [WebtoonTag(webtoon=webtoon, tag=tag) for tag in all_tags]
 
-            # WebtoonTags 객체 리스트 생성 후 bulk_create
-            WebtoonTag.objects.bulk_create(
-                [WebtoonTag(webtoon=webtoon, tag=tag) for tag in all_tags]
-            )
+            WebtoonTag.objects.bulk_create(webtoon_tags)
 
         return webtoon
+
+    # def create(self, validated_data):
+    #     tags = validated_data.pop("tags", [])
+    #     webtoon = Webtoon.objects.create(**validated_data)
+    #
+    #     if tags:
+    #         tag_names = [tag["tag_name"] for tag in tags]
+    #         existing_tags = [
+    #             {"tag_name": tag.tags_name, "category": tag.category}
+    #             for tag in Tag.objects.filter(tag_name__in=tag_names)
+    #         ]
+    #
+    #         new_tags = [tag for tag in tags if tag not in existing_tags]
+    #
+    #         Tag.objects.bulk_create(
+    #             [
+    #                 Tag(tag_name=tag["tag_name"], category=tag["category"])
+    #                 for tag in new_tags
+    #             ]
+    #         )  # 새 태그 생성
+    #
+    #         # 최신 태그 리스트 가져오기 (새로 생성된 태그 포함)
+    #         all_tags = [tag for tag in Tag.objects.filter(tag_name__in=tag_names)]
+    #
+    #         # WebtoonTags 객체 리스트 생성 후 bulk_create
+    #         WebtoonTag.objects.bulk_create(
+    #             [WebtoonTag(webtoon=webtoon, tag=tag) for tag in all_tags]
+    #         )
+    #
+    #     return webtoon
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -101,124 +140,3 @@ class WebtoonsSerializer(serializers.ModelSerializer):
         data["tags"] = TagSerializer(tags, many=True).data
         return data
 
-
-class WebtoonGetSerializer(serializers.ModelSerializer):
-    tags = TagSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Webtoon
-        fields = [
-            "title",
-            "author",
-            "thumbnail",
-            "webtoon_url",
-            "publication_day",
-            "platform",
-            "serial_day",
-            "serialization_cycle",
-            "created_at",
-            "updated_at",
-            "is_new",
-            "is_completed",
-            "like_count",
-            "view_count",
-            "tags",
-        ]
-
-    @extend_schema_serializer(
-        examples=[
-            OpenApiExample(
-                "Successful Creation",
-                value={
-                    "id": 1,
-                    "title": "프론트개발자의 일상",
-                    "author": "감자전",
-                    "thumnail_url": "https://example.com/thumbnail.jpg",
-                    "url": "https://webtoon-platform.com/webtoon/1",
-                    "platform": "네이버",
-                    "publication_day": "2025-02-10",
-                    "serial_day": "월요일,목요일",
-                    "serialization_cycle": "1주",
-                    "is_new": False,
-                    "is_completed": False,
-                    "like_count": 0,
-                    "view_count": 0,
-                    "tags": [{"tag_name": "string", "category": "genre"}],
-                },
-                response_only=True,
-                status_codes=["200"],
-            ),
-            OpenApiExample(
-                "Bad Request",
-                value={
-                    "massage": "Invalid input data",
-                },
-                response_only=True,
-                status_codes=["400"],
-            ),
-        ]
-    )
-    def get(self):
-        pass
-
-
-class UserWebtoonSerializer(serializers.ModelSerializer):
-    tags = TagSerializer(many=True, required=False)
-
-    class Meta:
-        model = Webtoon
-        fields = [
-            "title",
-            "author",
-            "thumbnail",
-            "webtoon_url",
-            "publication_day",
-            "platform",
-            "serial_day",
-            "serialization_cycle",
-            "created_at",
-            "updated_at",
-            "is_new",
-            "is_completed",
-            "like_count",
-            "view_count",
-            "tags",
-            "user",
-        ]
-
-    @extend_schema_serializer(
-        examples=[
-            OpenApiExample(
-                "Successful Creation",
-                value={
-                    "id": 1,
-                    "title": "프론트개발자의 일상",
-                    "author": "감자전",
-                    "thumnail_url": "https://example.com/thumbnail.jpg",
-                    "url": "https://webtoon-platform.com/webtoon/1",
-                    "platform": "네이버",
-                    "publication_day": "2025-02-10",
-                    "serial_day": "월요일,목요일",
-                    "serialization_cycle": "1주",
-                    "is_new": False,
-                    "is_completed": False,
-                    "like_count": 0,
-                    "view_count": 0,
-                    "tags": [{"tag_name": "string", "category": "genre"}],
-                    "user": 1231353,
-                },
-                response_only=True,
-                status_codes=["200"],
-            ),
-            OpenApiExample(
-                "Bad Request",
-                value={
-                    "massage": "Invalid input data",
-                },
-                response_only=True,
-                status_codes=["400"],
-            ),
-        ]
-    )
-    def get(self):
-        pass
