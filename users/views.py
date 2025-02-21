@@ -476,7 +476,7 @@ class UserProfileView(generics.GenericAPIView):
                 profile_img,
                 settings.AWS_STORAGE_BUCKET_NAME,
                 file_name,
-                ExtraArgs={"ACL": "public-read"},
+                ExtraArgs={"ACL": "FULL_CONTROL"},
             )
 
             # 프로필 이미지 URL 설정
