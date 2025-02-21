@@ -1,26 +1,24 @@
 import datetime
 import logging
-import os
+import uuid
 
 import boto3
 import requests
-from botocore.config import Config
+from botocore.exceptions import ClientError
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.tokens import default_token_generator
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.db import IntegrityError, connection
-from django.http import HttpResponseNotAllowed
+from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
+from django.db import IntegrityError  # connection 제거
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, serializers, status
+from rest_framework.generics import GenericAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -401,13 +399,44 @@ class LogoutView(APIView):
 
 
 class UserProfileView(generics.GenericAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = (permissions.IsAuthenticated,)
     serializer_class = UserProfileSerializer
     parser_classes = (MultiPartParser, FormParser)
-    queryset = User.objects.all()
 
-    def get_object(self):
+    def get(self):
         return self.request.user
+
+    def ncp_image(self, img_url: str | None) -> bool:
+        if img_url is None:
+            return False
+        return settings.AWS_STORAGE_BUCKET_NAME in img_url
+
+    def upload_ncp(self, img_file: UploadedFile, key_perfix: str, img_url=None) -> str:
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+        )
+
+        if not img_file.name:
+            raise serializers.ValidationError("파일의 이름이 없습니다")
+
+        file_extension = img_file.name.split(".")[-1]
+        key = f"{key_perfix}/{uuid.uuid4()}.{file_extension}"
+
+        try:
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+            )
+
+            key = img_url.replace(f"{settings.NCP_BUCKET_URL}/", "") if img_url else ""
+            s3_client.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
+        except ClientError as e:
+            logger.error(f"NCP delete error: {str(e)}")
 
     @extend_schema(
         summary="사용자 프로필 조회",
@@ -467,43 +496,40 @@ class UserProfileView(generics.GenericAPIView):
         logger.info("Performing update...")
 
         user = self.request.user
+        old_img_url = user.profile_img
         profile_img = self.request.FILES.get("profile_img")
         logger.info("Profile image: %s", profile_img)
 
-        if profile_img and isinstance(profile_img, InMemoryUploadedFile):
-            logger.info("Uploading file: %s", profile_img.name)
+        try:
+            # 닉네임 업데이트
+            if "nick_name" in serializer.validated_data:
+                user.nick_name = serializer.validated_data["nick_name"]
 
-            # boto3.client() 수정: signature_version="s3v4" 추가
-            s3 = boto3.client(
-                "s3",
-                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                config=Config(signature_version="s3v4"),  # ← 여기 추가!
-            )
-
-            file_name = f"users/profile/{user.id}_{profile_img.name}"
-            logger.info("File name to upload: %s", file_name)
-
-            try:
-                s3.upload_fileobj(
-                    profile_img,
-                    settings.AWS_STORAGE_BUCKET_NAME,
-                    file_name,
-                    ExtraArgs={"ACL": "public-read"},
-                )
-                # 업로드된 이미지 URL 저장
-                user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+            # 프로필 이미지 업데이트
+            if profile_img and isinstance(profile_img, InMemoryUploadedFile):
+                logger.info("Uploading file: %s", profile_img.name)
+                new_img_url = self._upload_to_ncp(profile_img, "users/profile")
+                user.profile_img = new_img_url
                 logger.info("File uploaded successfully: %s", user.profile_img)
-            except Exception as e:
-                logger.error("File upload error: %s", e)
-        else:
-            logger.warning("No valid profile image found")
 
-        user.is_updated = timezone.now()
-        user.save()
-        serializer.save()
-        logger.info("Update complete")
+                # 기존 이미지 삭제
+                if old_img_url and self._is_ncp_image(old_img_url):
+                    self._delete_from_ncp(old_img_url)
+                    logger.info("Old image deleted: %s", old_img_url)
+            else:
+                logger.warning("No valid profile image found")
+
+            # 사용자 정보 저장
+            user.is_updated = timezone.now()
+            user.save()
+            serializer.save()
+            logger.info("Update complete")
+
+        except Exception as e:
+            logger.error("Profile update error: %s", e)
+            raise serializers.ValidationError(
+                f"프로필 수정 중 오류가 발생했습니다: {str(e)}"
+            )
 
 
 class UserWithdrawView(generics.GenericAPIView):
