@@ -19,7 +19,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -260,26 +260,70 @@ class TokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        refresh_token = request.headers.get("Refresh-Token")
+        auth_header = request.headers.get("Authorization")
 
-        if not refresh_token:
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
             return Response(
-                {"error": "Refresh token is required"},
+                {"error": "Bearer token is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        refresh_token = auth_header.split(" ")[1]
 
         try:
-            refresh = RefreshToken(refresh_token)
-            new_access_token = str(refresh.access_token)
+            # RefreshToken 객체 생성 및 토큰 검증
+            token = RefreshToken(refresh_token)
+
+            # 토큰에서 사용자 ID 추출
+            user_id = token.payload.get("user_id")
+
+            if not user_id:
+                return Response(
+                    {"error": "Invalid refresh token"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 사용자 조회
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response(
+                    {"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # 저장된 refresh token과 비교
+            if user.refresh_token != refresh_token:
+                return Response(
+                    {"error": "Refresh token does not match"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 새로운 access token 생성
+            new_access_token = str(token.access_token)
+
+            # 리프레시 토큰 재사용 방지 (선택적)
+            user.refresh_token = str(token)  # 새 리프레시 토큰 저장
+            user.save()
 
             return Response(
                 {"access_token": new_access_token}, status=status.HTTP_200_OK
             )
 
+        except InvalidToken:
+            return Response(
+                {"error": "Invalid refresh token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except TokenError:
             return Response(
-                {"error": "Invalid or expired refresh token"},
+                {"error": "Expired refresh token"},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
