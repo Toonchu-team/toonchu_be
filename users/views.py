@@ -401,7 +401,7 @@ class LogoutView(APIView):
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserProfileSerializer
-    # parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser)
     queryset = User.objects.all()
 
     def get_object(self):
