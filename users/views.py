@@ -2,11 +2,14 @@ import datetime
 import logging
 import os
 
+import boto3
 import requests
+from botocore.config import Config
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.db import IntegrityError
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.db import IntegrityError, connection
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -18,7 +21,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -91,11 +94,11 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        #  로그인 시 user_active가 False이면 로그인 불가 처리
+        #  로그인 시 user_active가 False or 0 이면 로그인 불가 처리
         if not user.is_active:
             return Response(
                 {"error": "Your account is inactive. Please contact support."},
-                status=status.HTTP_403_FORBIDDEN,  # 403 상태 코드 반환
+                status=status.HTTP_400_BAD_REQUEST,  # 403 상태 코드 반환
             )
 
         # JWT 토큰 생성
@@ -259,26 +262,70 @@ class TokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        refresh_token = request.COOKIES.get("refresh_token")
+        auth_header = request.headers.get("Authorization")
 
-        if not refresh_token:
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
             return Response(
-                {"error": "Refresh token is required"},
+                {"error": "Bearer token is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        refresh_token = auth_header.split(" ")[1]
 
         try:
-            refresh = RefreshToken(refresh_token)
-            new_access_token = str(refresh.access_token)
+            # RefreshToken 객체 생성 및 토큰 검증
+            token = RefreshToken(refresh_token)
+
+            # 토큰에서 사용자 ID 추출
+            user_id = token.payload.get("user_id")
+
+            if not user_id:
+                return Response(
+                    {"error": "Invalid refresh token"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 사용자 조회
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response(
+                    {"error": "User not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # 저장된 refresh token과 비교
+            if user.refresh_token != refresh_token:
+                return Response(
+                    {"error": "Refresh token does not match"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 새로운 access token 생성
+            new_access_token = str(token.access_token)
+
+            # 리프레시 토큰 재사용 방지 (선택적)
+            user.refresh_token = str(token)  # 새 리프레시 토큰 저장
+            user.save()
 
             return Response(
                 {"access_token": new_access_token}, status=status.HTTP_200_OK
             )
 
+        except InvalidToken:
+            return Response(
+                {"error": "Invalid refresh token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except TokenError:
             return Response(
-                {"error": "Invalid or expired refresh token"},
+                {"error": "Expired refresh token"},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -319,7 +366,7 @@ class LogoutView(APIView):
     serializer_class = LogoutSerializer
 
     def post(self, request):
-        raise Exception("1123")
+        # raise Exception("1123")
         refresh_token = request.data.get("refresh_token")
         logger.info(f"Received refresh_token:{refresh_token}")
         logger.info(f"User ID: {request.user.id}")
@@ -356,7 +403,7 @@ class LogoutView(APIView):
 class UserProfileView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserProfileSerializer
-    # parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser)
     queryset = User.objects.all()
 
     def get_object(self):
@@ -368,7 +415,7 @@ class UserProfileView(generics.GenericAPIView):
         responses={200: UserProfileSerializer},
         tags=["User Profile"],
     )
-    def get(self, request, *args, **kwargs):  # GET 메서드 처리
+    def get(self, request, *args, **kwargs):
         serializer = self.get_serializer(self.get_object())
         data = serializer.data
         return Response(
@@ -389,20 +436,22 @@ class UserProfileView(generics.GenericAPIView):
             OpenApiParameter(
                 name="nick_name",
                 type=OpenApiTypes.STR,
-                location=OpenApiParameter.QUERY,
+                location="form",
                 description="수정할 닉네임",
                 required=False,
             ),
             OpenApiParameter(
                 name="profile_img",
                 type=OpenApiTypes.BINARY,
-                location=OpenApiParameter.QUERY,
+                location="form",
                 description="수정할 프로필 이미지",
                 required=False,
             ),
         ],
     )
     def patch(self, request, *args, **kwargs):
+        logger.info("PATCH request.data: %s", request.data)
+        logger.info("PATCH request.FILES: %s", request.FILES)
 
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
@@ -415,22 +464,46 @@ class UserProfileView(generics.GenericAPIView):
         )
 
     def perform_update(self, serializer):
+        logger.info("Performing update...")
+
         user = self.request.user
         profile_img = self.request.FILES.get("profile_img")
-        if profile_img:
-            upload_dir = "/app/media/profile"
-            os.makedirs(upload_dir, exist_ok=True)
-            file_path = os.path.join(upload_dir, f"{user.id}_{profile_img.name}")
+        logger.info("Profile image: %s", profile_img)
 
-            with open(file_path, "wb+") as destination:
-                for chunk in profile_img.chunks():
-                    destination.write(chunk)
+        if profile_img and isinstance(profile_img, InMemoryUploadedFile):
+            logger.info("Uploading file: %s", profile_img.name)
 
-            user.profile_img = f"/media/profile/{user.id}_{profile_img.name}"
+            # boto3.client() 수정: signature_version="s3v4" 추가
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                config=Config(signature_version="s3v4"),  # ← 여기 추가!
+            )
+
+            file_name = f"users/profile/{user.id}_{profile_img.name}"
+            logger.info("File name to upload: %s", file_name)
+
+            try:
+                s3.upload_fileobj(
+                    profile_img,
+                    settings.AWS_STORAGE_BUCKET_NAME,
+                    file_name,
+                    ExtraArgs={"ACL": "public-read"},
+                )
+                # 업로드된 이미지 URL 저장
+                user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+                logger.info("File uploaded successfully: %s", user.profile_img)
+            except Exception as e:
+                logger.error("File upload error: %s", e)
+        else:
+            logger.warning("No valid profile image found")
 
         user.is_updated = timezone.now()
         user.save()
         serializer.save()
+        logger.info("Update complete")
 
 
 class UserWithdrawView(generics.GenericAPIView):
@@ -469,13 +542,9 @@ class UserWithdrawView(generics.GenericAPIView):
             )
 
         user.withdraw_at = timezone.now()
-
         delete_date = timezone.now() + datetime.timedelta(days=50)
-        logger.info(f"user_active수정전:{user.is_active}")
-        user.is_active = False
-        logger.info(f"user_active setting -> False로:{user.is_active}")
-        user.save()
-        logger.info(f"user_active수정후:{user.is_active}")
+        user.is_active = 0  # is_active 필드 값을 False = 0으로 설정
+        user.save()  # 변경 사항을 데이터베이스에 저장
 
         request_data = {
             "message": "계정탈퇴가 요청되었습니다. 50일후 사용자 정보는 완전히 삭제가 됩니다.",
