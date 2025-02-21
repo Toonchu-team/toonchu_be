@@ -38,7 +38,7 @@
 # #         image_data.seek(0)
 # #
 # #         image_file = SimpleUploadedFile(
-# #             "test_image.png", image_data.getvalue(), content_type="image/png"
+# #             "test_image.jpg", image_data.getvalue(), content_type="image/png"
 # #         )
 # #
 # #         response = self.client.patch(
@@ -85,9 +85,9 @@
 #
 #     def test_user_profile_patch_with_image(self):
 #         """사용자 프로필 수정 테스트 (실제 NCP 연결 - 이미지 포함)"""
-#         image_path = os.path.join(os.path.dirname(__file__), "../profile/test_image.png")
+#         image_path = os.path.join(os.path.dirname(__file__), "../profile/test_image.jpg")
 #         with open(image_path, "rb") as image_file:
-#             image = SimpleUploadedFile("test_image.png", image_file.read(), content_type="image/png")
+#             image = SimpleUploadedFile("test_image.jpg", image_file.read(), content_type="image/png")
 #             response = self.client.patch(
 #                 "/users/me/profile/update/",
 #                 {"nick_name": "ImageTest", "profile_img": image},
@@ -95,7 +95,7 @@
 #             )
 #         self.assertEqual(response.status_code, 200)
 #
-#         image_file = SimpleUploadedFile("test_image.png", image_content, content_type="image/png")
+#         image_file = SimpleUploadedFile("test_image.jpg", image_content, content_type="image/png")
 #
 #         data = {"nick_name": "NewName", "profile_img": image_file}
 #         response = self.client.patch("/users/me/profile/update/", data, format="multipart")
@@ -154,12 +154,12 @@
 #
 #     def test_user_profile_patch_with_image(self):
 #         """사용자 프로필 수정 테스트 (실제 NCP 연결 - 이미지 포함)"""
-#         image_path = os.path.join(os.path.dirname(__file__), "test_image.png")
-#         with open(os.path.join(os.path.dirname(__file__), 'test_image.png'), 'rb') as img_file:
+#         image_path = os.path.join(os.path.dirname(__file__), "test_image.jpg")
+#         with open(os.path.join(os.path.dirname(__file__), 'test_image.jpg'), 'rb') as img_file:
 #             image_content = img_file.read()
 #
 #             image = SimpleUploadedFile(
-#                 name='test_image.png',
+#                 name='test_image.jpg',
 #                 content=img_file.read(),
 #                 content_type='image/png'
 #             )
@@ -173,17 +173,17 @@
 #         print("Response data:", response.data)
 #
 #         # self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-#
-# from django.core.files.uploadedfile import SimpleUploadedFile
-#
-# from users.models import CustomUser
-#
-# user = CustomUser.objects.first()
-# with open("users/tests/test_image.png", "rb") as img:
-#     user.profile_img.save(
-#         "test_image.png",
-#         SimpleUploadedFile("test_image.png", img.read(), content_type="image/png"),
-#     )
-#     user.save()
-#
-# print(user.profile_img.url)  # 업로드된 이미지의 URL 확인
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from users.models import CustomUser
+
+user = CustomUser.objects.first()
+with open("users/tests/test_image.jpg", "rb") as img:
+    user.profile_img.save(
+        "test_image.jpg",
+        SimpleUploadedFile("test_image.jpg", img.read(), content_type="image/jpg"),
+    )
+    user.save()
+
+print(user.profile_img.url)  # 업로드된 이미지의 URL 확인
