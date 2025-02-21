@@ -434,14 +434,14 @@ class UserProfileView(generics.GenericAPIView):
             OpenApiParameter(
                 name="nick_name",
                 type=OpenApiTypes.STR,
-                location=OpenApiParameter.FORM,
+                location=OpenApiParameter.REQUEST,  # 수정
                 description="수정할 닉네임",
                 required=False,
             ),
             OpenApiParameter(
                 name="profile_img",
                 type=OpenApiTypes.BINARY,
-                location=OpenApiParameter.FORM,
+                location=OpenApiParameter.REQUEST,  # 수정
                 description="수정할 프로필 이미지",
                 required=False,
             ),
