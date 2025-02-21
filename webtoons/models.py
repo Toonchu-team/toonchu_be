@@ -53,7 +53,7 @@ class Webtoon(CommonModel):
     serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES)
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
-    is_approved = models.CharField(max_length=20, choices=APPROVAL_STATUS, default="pending", null=False, blank=False)
+    is_approved = models.CharField(max_length=20, choices=APPROVAL_STATUS, default="pending")
     # user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
 
