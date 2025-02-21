@@ -29,6 +29,11 @@ class Webtoon(CommonModel):
         ("sat", "토요일"),
         ("sun", "일요일"),
     ]
+    APPROVAL_STATUS = [
+        ("pending", "승인요청중"),
+        ("approved", "승인됨"),
+        ("rejected", "거절됨"),
+    ]
     title = models.CharField(max_length=100, null=False, blank=False)
     author = models.CharField(max_length=50, null=False, blank=False)
     thumbnail = models.ImageField(
@@ -48,6 +53,9 @@ class Webtoon(CommonModel):
     serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES)
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
+    is_approved = models.CharField(
+        max_length=20, choices=APPROVAL_STATUS, default="pending"
+    )
     # user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
 
@@ -64,7 +72,7 @@ class Tag(models.Model):
         ("top/bottom", "00공수"),
         ("etc", "기타"),
     ]
-    tag_name = models.CharField(max_length=100, unique=True)
+    tag_name = models.CharField(max_length=100)
     category = models.CharField(max_length=100, choices=CATEGORY_CHOICES)
 
 
