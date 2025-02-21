@@ -35,7 +35,7 @@ if os.getenv("DJANGO_ENV") != "test":
         ]
     }
 
-    bucket_name = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    bucket_name = ENV.get("AWS_STORAGE_BUCKET_NAME")
     response = s3.put_bucket_cors(
         Bucket=bucket_name, CORSConfiguration=cors_configuration
     )
