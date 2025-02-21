@@ -1,40 +1,42 @@
+import os
+
+import boto3
+
 from .base import *
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    ENV.get("DB_HOST"),
+    os.getenv("DB_HOST"),
 ]
 
-# CORS 설정 (개발 환경)
-CORS_ALLOW_ALL_ORIGINS = True  # 개발 환경에서는 모든 요청 허용
-CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE"]
-CORS_ALLOW_HEADERS = ["*"]
+CORS_ALLOW_ALL_ORIGINS = True  # 개발 환경에서만 사용
 
+# 테스트 환경에서는 실행하지 않음
+if os.getenv("DJANGO_ENV") != "test":
+    s3 = boto3.client(
+        "s3",
+        endpoint_url="https://kr.object.ncloudstorage.com",
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    )
 
-s3 = boto3.client(
-    "s3",
-    endpoint_url="https://kr.object.ncloudstorage.com",
-    aws_access_key_id="YOUR_ACCESS_KEY_ID",
-    aws_secret_access_key="YOUR_SECRET_ACCESS_KEY",
-)
+    cors_configuration = {
+        "CORSRules": [
+            {
+                "AllowedOrigins": ["*"],
+                "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+                "AllowedHeaders": ["*"],
+                "ExposeHeaders": [],
+                "MaxAgeSeconds": 3000,
+            }
+        ]
+    }
 
-# CORS 설정 JSON
-cors_configuration = {
-    "CORSRules": [
-        {
-            "AllowedOrigins": ["*"],  # 필요한 경우 특정 도메인만 입력
-            "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
-            "AllowedHeaders": ["*"],
-            "ExposeHeaders": [],
-            "MaxAgeSeconds": 3000,
-        }
-    ]
-}
-
-# 버킷에 CORS 적용
-bucket_name = "YOUR_BUCKET_NAME"
-response = s3.put_bucket_cors(Bucket=bucket_name, CORSConfiguration=cors_configuration)
+    bucket_name = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    response = s3.put_bucket_cors(
+        Bucket=bucket_name, CORSConfiguration=cors_configuration
+    )
+    print("CORS 설정 완료:", response)
