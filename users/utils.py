@@ -1,5 +1,8 @@
 import random
 
+# from users.views import CustomUser
+
+
 FIRST_NAMES = [
     "귀여운",
     "우아한",
@@ -230,6 +233,7 @@ def RendomNickName():
 
     # 확률 2%로 적용
     if random.random() < 0.02:  # 히든 닉네임 2% 확률
+        # CustomUser.is_hidden = 1
         return random.choice(HIDDEN_NICKNAMES)
 
     return f"{first_name} {last_name}"  # 일반닉네임 98% 확률
