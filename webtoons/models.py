@@ -32,7 +32,7 @@ class Webtoon(CommonModel):
     APPROVAL_STATUS = [
         ("pending", "승인요청중"),
         ("approved", "승인됨"),
-        ("rejected", "거절됨")
+        ("rejected", "거절됨"),
     ]
     title = models.CharField(max_length=100, null=False, blank=False)
     author = models.CharField(max_length=50, null=False, blank=False)
@@ -53,7 +53,9 @@ class Webtoon(CommonModel):
     serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES)
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
-    is_approved = models.CharField(max_length=20, choices=APPROVAL_STATUS, default="pending")
+    is_approved = models.CharField(
+        max_length=20, choices=APPROVAL_STATUS, default="pending"
+    )
     # user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
 

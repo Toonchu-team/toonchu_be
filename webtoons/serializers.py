@@ -139,4 +139,3 @@ class WebtoonsSerializer(serializers.ModelSerializer):
         tags = [webtoon_tag.tag for webtoon_tag in instance.webtoon_tags.all()]
         data["tags"] = TagSerializer(tags, many=True).data
         return data
-

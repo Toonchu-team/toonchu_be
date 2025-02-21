@@ -1,11 +1,13 @@
 import uuid
+
 import boto3
 from django.conf import settings
+from django.core.files import File
 from django.http import JsonResponse
 from dotenv import dotenv_values
-from django.core.files import File
 
 ENV = dotenv_values(".env")
+
 
 def thumbnail_handler(request, existing_thumbnail=None):
     thumbnail_url = existing_thumbnail if existing_thumbnail else None

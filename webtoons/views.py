@@ -3,19 +3,19 @@ import os
 
 import requests
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
     extend_schema,
 )
 from rest_framework import status
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import UpdateAPIView
-from django.http import JsonResponse
+
 from .models import Tag, Webtoon
 from .serializers import (
     TagSerializer,
@@ -50,6 +50,7 @@ class WebtoonCreateView(CreateAPIView):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
+
 
 class SearchByIntegrateView(APIView):
     permission_classes = [AllowAny]
@@ -270,6 +271,7 @@ class ListView(APIView):
         serializer = WebtoonsSerializer(webtoons, many=True)
         return Response(serializer.data)
 
+
 class WebtoonApprovalView(UpdateAPIView):
     permission_classes = [AllowAny]
     queryset = Webtoon.objects.all()
@@ -284,34 +286,34 @@ class WebtoonApprovalView(UpdateAPIView):
                 name="action",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description="'approve' 또는 'reject'"
+                description="'approve' 또는 'reject'",
             )
         ],
         request=OpenApiTypes.NONE,
-        responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT
-        }
+        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
     )
-
     def patch(self, request, pk):
         webtoon = self.get_object()
         action = request.data.get("action")
 
         action_mapping = {
-            "approve": {"status":"approved", "message":"웹툰 등록이 완료됐다냥!"},
-            "reject": {"status":"rejected", "message":"웹툰 등록 신청이 거절 됐다냥.."}
+            "approve": {"status": "approved", "message": "웹툰 등록이 완료됐다냥!"},
+            "reject": {
+                "status": "rejected",
+                "message": "웹툰 등록 신청이 거절 됐다냥..",
+            },
         }
         webtoon.is_approved = action_mapping[action]["status"]
         webtoon.save(update_fields=["is_approved"])
 
-        return Response({"message":action_mapping[action]["message"]}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": action_mapping[action]["message"]}, status=status.HTTP_200_OK
+        )
 
     @extend_schema(
         summary="웹툰 승인 확인용 GET API",
         tags=["Webtoon approval"],
     )
-
     def get(self, request, pk):
         webtoon = self.get_object()
         serializer = WebtoonsSerializer(webtoon)

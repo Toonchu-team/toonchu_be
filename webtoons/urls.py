@@ -6,8 +6,8 @@ from .views import (
     ListView,
     SearchByIntegrateView,
     SearchByTagView,
+    WebtoonApprovalView,
     WebtoonCreateView,
-    WebtoonApprovalView
 )
 
 urlpatterns = [
