@@ -398,7 +398,7 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
-class UserProfileView(generics, GenericAPIView):
+class UserProfileView(generics.GenericAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = UserProfileSerializer
     parser_classes = (MultiPartParser, FormParser)
