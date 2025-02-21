@@ -417,6 +417,7 @@ class UserProfileView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         serializer = self.get_serializer(self.get_object())
         data = serializer.data
+        User.is_hidden = 0
         return Response(
             {
                 "message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다",
