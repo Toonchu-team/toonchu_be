@@ -64,7 +64,7 @@ class Tag(models.Model):
         ("top/bottom", "00공수"),
         ("etc", "기타"),
     ]
-    tag_name = models.CharField(max_length=100, unique=True)
+    tag_name = models.CharField(max_length=100)
     category = models.CharField(max_length=100, choices=CATEGORY_CHOICES)
 
 
