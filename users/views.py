@@ -413,7 +413,7 @@ class UserProfileView(generics.GenericAPIView):
         responses={200: UserProfileSerializer},
         tags=["User Profile"],
     )
-    def get(self, request, *args, **kwargs):  # GET 메서드 처리
+    def get(self, request, *args, **kwargs):
         serializer = self.get_serializer(self.get_object())
         data = serializer.data
         return Response(
@@ -434,20 +434,22 @@ class UserProfileView(generics.GenericAPIView):
             OpenApiParameter(
                 name="nick_name",
                 type=OpenApiTypes.STR,
-                location=OpenApiParameter.QUERY,
+                location="form",  # 수정
                 description="수정할 닉네임",
                 required=False,
             ),
             OpenApiParameter(
                 name="profile_img",
                 type=OpenApiTypes.BINARY,
-                location=OpenApiParameter.QUERY,
+                location="form",  # 수정
                 description="수정할 프로필 이미지",
                 required=False,
             ),
         ],
     )
     def patch(self, request, *args, **kwargs):
+        logger.info("PATCH request.data: %s", request.data)
+        logger.info("PATCH request.FILES: %s", request.FILES)
 
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
@@ -471,15 +473,14 @@ class UserProfileView(generics.GenericAPIView):
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             )
 
-            file_name = f"users/profile/{user.id}_{profile_img.name}"  # ncp -> 버킷 -> users폴더에 이미지 저장
+            file_name = f"users/profile/{user.id}_{profile_img.name}"
             s3.upload_fileobj(
                 profile_img,
                 settings.AWS_STORAGE_BUCKET_NAME,
                 file_name,
-                ExtraArgs={"ACL": "FULL_CONTROL"},
+                ExtraArgs={"ACL": "public-read"},  # 권한 수정
             )
 
-            # 프로필 이미지 URL 설정
             user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
 
         user.is_updated = timezone.now()
