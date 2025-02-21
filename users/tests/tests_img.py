@@ -174,16 +174,16 @@
 #
 #         # self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
 
-from django.core.files.uploadedfile import SimpleUploadedFile
-
-from users.models import CustomUser
-
-user = CustomUser.objects.first()
-with open("users/tests/test_image.jpg", "rb") as img:
-    user.profile_img.save(
-        "test_image.jpg",
-        SimpleUploadedFile("test_image.jpg", img.read(), content_type="image/jpg"),
-    )
-    user.save()
-
-print(user.profile_img.url)  # 업로드된 이미지의 URL 확인
+# from django.core.files.uploadedfile import SimpleUploadedFile
+#
+# from users.models import CustomUser
+#
+# user = CustomUser.objects.first()
+# with open("users/tests/test_image.jpg", "rb") as img:
+#     user.profile_img.save(
+#         "test_image.jpg",
+#         SimpleUploadedFile("test_image.jpg", img.read(), content_type="image/jpg"),
+#     )
+#     user.save()
+#
+# print(user.profile_img.url)  # 업로드된 이미지의 URL 확인
