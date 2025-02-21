@@ -258,7 +258,6 @@ class ListView(APIView):
         if tag_ids:
             webtoons = (
                 Webtoon.objects.filter(webtoon_tags__tag__id__in=tag_ids)
-
                 .annotate(
                     matching_tags=Count(
                         "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
