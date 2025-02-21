@@ -464,8 +464,10 @@ class UserProfileView(generics.GenericAPIView):
     def perform_update(self, serializer):
         user = self.request.user
         profile_img = self.request.FILES.get("profile_img")
+
         if profile_img:
-            # NCP Object Storage에 파일 업로드
+            logger.info("Uploading file to NCP: %s", profile_img.name)
+
             s3 = boto3.client(
                 "s3",
                 endpoint_url=settings.AWS_S3_ENDPOINT_URL,
@@ -474,14 +476,19 @@ class UserProfileView(generics.GenericAPIView):
             )
 
             file_name = f"users/profile/{user.id}_{profile_img.name}"
-            s3.upload_fileobj(
-                profile_img,
-                settings.AWS_STORAGE_BUCKET_NAME,
-                file_name,
-                ExtraArgs={"ACL": "public-read"},  # 권한 수정
-            )
-
-            user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+            try:
+                s3.upload_fileobj(
+                    profile_img,
+                    settings.AWS_STORAGE_BUCKET_NAME,
+                    file_name,
+                    ExtraArgs={"ACL": "public-read"},
+                )
+                user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+                logger.info("File uploaded successfully: %s", user.profile_img)
+            except Exception as e:
+                logger.error("Failed to upload file to NCP: %s", e)
+        else:
+            logger.warning("No profile image found in request.FILES")
 
         user.is_updated = timezone.now()
         user.save()
