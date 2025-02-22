@@ -68,6 +68,7 @@ class SocialLoginView(APIView):
                 {"error": "Invalid social token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
         # logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
         #
         # # 닉네임이 없는 경우 랜덤 닉네임 생성
@@ -82,7 +83,7 @@ class SocialLoginView(APIView):
                 email=user_info["email"],
                 provider=provider,
                 defaults={
-                    "nick_name": nick_name,  # 닉네임 저장
+                    # "nick_name": nick_name,  # 닉네임 저장
                     "profile_img": user_info.get("profile_image"),
                     "is_hidden": is_hidden,  # 히든 여부 저장
                 },
