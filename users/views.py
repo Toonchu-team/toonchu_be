@@ -426,7 +426,11 @@ class UserProfileView(generics.GenericAPIView):
                 endpoint_url=settings.AWS_S3_ENDPOINT_URL,
             )
 
-            key = img_url.replace(f"{settings.NCP_BUCKET_URL}/", "") if img_url else ""
+            key = (
+                img_url.replace(f"{settings.AWS_STORAGE_BUCKET_NAME}/", "")
+                if img_url
+                else ""
+            )
             s3_client.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
         except ClientError as e:
             logger.error(f"NCP delete error: {str(e)}")
@@ -442,8 +446,8 @@ class UserProfileView(generics.GenericAPIView):
                 endpoint_url=settings.AWS_S3_ENDPOINT_URL,
             )
 
-            key = img_url.replace(f"{settings.AWS_BUCKET_URL}/", "")
-            s3_client.delete_object(Bucket=settings.AWS_BUCKET_NAME, Key=key)
+            key = img_url.replace(f"{settings.AWS_STORAGE_BUCKET_NAME}/", "")
+            s3_client.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
         except ClientError as e:
             logger.error(f"NCP delete error: {str(e)}")
 
