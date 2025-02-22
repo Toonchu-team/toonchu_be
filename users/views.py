@@ -69,13 +69,13 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
-        #
-        # # 닉네임이 없는 경우 랜덤 닉네임 생성
-        # nick_name = user_info.get("nick_name")
-        # is_hidden = False
-        # if not nick_name:  # 닉네임이 None 또는 빈 값이면
-        #     nick_name, is_hidden = RendomNickName()  # 랜덤 닉네임과 히든 여부 반환
+        logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
+
+        # 닉네임이 없는 경우 랜덤 닉네임 생성
+        nick_name = user_info.get("nick_name")
+        is_hidden = False
+        if not nick_name:  # 닉네임이 None 또는 빈 값이면
+            nick_name, is_hidden = RendomNickName()  # 랜덤 닉네임과 히든 여부 반환
 
         # 사용자 정보로 DB 조회 및 저장
         try:
