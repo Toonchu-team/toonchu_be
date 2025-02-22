@@ -83,7 +83,7 @@ class SocialLoginView(APIView):
                 email=user_info["email"],
                 provider=provider,
                 defaults={
-                    # "nick_name": nick_name,  # 닉네임 저장
+                    "nick_name": nick_name,  # 닉네임 저장
                     "profile_img": user_info.get("profile_image"),
                     "is_hidden": is_hidden,  # 히든 여부 저장
                 },
