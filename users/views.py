@@ -391,65 +391,9 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
-class UserProfileView(generics.GenericAPIView):
-    permission_classes = (permissions.IsAuthenticated,)
+class UserProfileView(GenericAPIView):
     serializer_class = UserProfileSerializer
-    parser_classes = (MultiPartParser, FormParser)
-
-    def get(self):
-        return self.request.user
-
-    def ncp_image(self, img_url: str | None) -> bool:
-        if img_url is None:
-            return False
-        return settings.AWS_STORAGE_BUCKET_NAME in img_url
-
-    def upload_ncp(self, img_file: UploadedFile, key_prefix: str, img_url=None) -> str:
-        s3_client = boto3.client(
-            "s3",
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-        )
-
-        if not img_file.name:
-            raise serializers.ValidationError("파일의 이름이 없습니다")
-
-        file_extension = img_file.name.split(".")[-1]
-        key = f"{key_prefix}/{uuid.uuid4()}.{file_extension}"
-
-        try:
-            s3_client = boto3.client(
-                "s3",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-            )
-
-            key = (
-                img_url.replace(f"{settings.AWS_STORAGE_BUCKET_NAME}/", "")
-                if img_url
-                else ""
-            )
-            s3_client.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
-        except ClientError as e:
-            logger.error(f"NCP delete error: {str(e)}")
-
-    def delete_ncp(self, img_url: str | None) -> None:
-        if img_url is None:
-            return
-
-        try:
-            s3_client = boto3.client(
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-            )
-
-            key = img_url.replace(f"{settings.AWS_STORAGE_BUCKET_NAME}/", "")
-            s3_client.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
-        except ClientError as e:
-            logger.error(f"NCP delete error: {str(e)}")
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         summary="사용자 프로필 조회",
@@ -491,58 +435,66 @@ class UserProfileView(generics.GenericAPIView):
             ),
         ],
     )
-    def patch(self, request, *args, **kwargs):
-        logger.info("PATCH request.data: %s", request.data)
-        logger.info("PATCH request.FILES: %s", request.FILES)
+    def get_object(self):
+        return self.request.user.userprofile
 
+    def get(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request, *args, **kwargs):
+        instance = self.get_object()
+        data = request.data.copy()
+
+        if "profile_image" in request.FILES:
+            image_url = self.upload_image_to_ncp(request.FILES["profile_image"])
+            if image_url:
+                data["profile_image"] = image_url
+
+        serializer = self.get_serializer(instance, data=data, partial=False)
         serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        user_data = serializer.data
-        return Response(
-            {"message": "회원 정보가 수정되었습니다.", "user": user_data},
-            status=status.HTTP_200_OK,
-        )
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def perform_update(self, serializer):
-        logger.info("Performing update...")
+    def patch(self, request, *args, **kwargs):
+        instance = self.get_object()
+        data = request.data.copy()
 
-        user = self.request.user
-        old_img_url = user.profile_img
-        profile_img = self.request.FILES.get("profile_img")
-        logger.info("Profile image: %s", profile_img)
+        if "profile_image" in request.FILES:
+            image_url = self.upload_image_to_ncp(request.FILES["profile_image"])
+            if image_url:
+                data["profile_image"] = image_url
 
+        serializer = self.get_serializer(instance, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def upload_image_to_ncp(self, file_obj):
+        """
+        Uploads an image to NCP Object Storage and returns the URL.
+        """
         try:
-            # 닉네임 업데이트
-            if "nick_name" in serializer.validated_data:
-                user.nick_name = serializer.validated_data["nick_name"]
+            s3 = boto3.client(
+                "s3",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+            )
+            file_name = f"profile_images/{uuid.uuid4().hex}_{file_obj.name}"
+            s3.upload_fileobj(
+                file_obj,
+                settings.AWS_STORAGE_BUCKET_NAME,
+                file_name,
+                ExtraArgs={"ACL": "public-read"},
+            )
 
-            # 프로필 이미지 업데이트
-            if profile_img and isinstance(profile_img, InMemoryUploadedFile):
-                logger.info("Uploading file: %s", profile_img.name)
-                new_img_url = self.upload_ncp(profile_img, "users/profile")
-                user.profile_img = new_img_url
-                logger.info("File uploaded successfully: %s", user.profile_img)
-
-                # 기존 이미지 삭제
-                if old_img_url and self.ncp_image(old_img_url):
-                    self.delete_ncp(old_img_url)
-                    logger.info("Old image deleted: %s", old_img_url)
-            else:
-                logger.warning("No valid profile image found")
-
-            # 사용자 정보 저장
-            user.is_updated = timezone.now()
-            user.save()
-            serializer.save()
-            logger.info("Update complete")
+            return f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
 
         except Exception as e:
-            logger.error("Profile update error: %s", e)
-            raise serializers.ValidationError(
-                f"프로필 수정 중 오류가 발생했습니다: {str(e)}"
-            )
+            logger.error(f"NCP Upload Failed: {e}")
+            return None
 
 
 class UserWithdrawView(generics.GenericAPIView):
