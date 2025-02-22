@@ -404,7 +404,7 @@ class UserProfileView(generics.GenericAPIView):
             return False
         return settings.AWS_STORAGE_BUCKET_NAME in img_url
 
-    def upload_ncp(self, img_file: UploadedFile, key_perfix: str, img_url=None) -> str:
+    def upload_ncp(self, img_file: UploadedFile, key_prefix: str, img_url=None) -> str:
         s3_client = boto3.client(
             "s3",
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
@@ -416,7 +416,7 @@ class UserProfileView(generics.GenericAPIView):
             raise serializers.ValidationError("파일의 이름이 없습니다")
 
         file_extension = img_file.name.split(".")[-1]
-        key = f"{key_perfix}/{uuid.uuid4()}.{file_extension}"
+        key = f"{key_prefix}/{uuid.uuid4()}.{file_extension}"
 
         try:
             s3_client = boto3.client(
@@ -428,6 +428,22 @@ class UserProfileView(generics.GenericAPIView):
 
             key = img_url.replace(f"{settings.NCP_BUCKET_URL}/", "") if img_url else ""
             s3_client.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
+        except ClientError as e:
+            logger.error(f"NCP delete error: {str(e)}")
+
+    def delete_ncp(self, img_url: str | None) -> None:
+        if img_url is None:
+            return
+
+        try:
+            s3_client = boto3.client(
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+            )
+
+            key = img_url.replace(f"{settings.AWS_BUCKET_URL}/", "")
+            s3_client.delete_object(Bucket=settings.AWS_BUCKET_NAME, Key=key)
         except ClientError as e:
             logger.error(f"NCP delete error: {str(e)}")
 
@@ -501,13 +517,13 @@ class UserProfileView(generics.GenericAPIView):
             # 프로필 이미지 업데이트
             if profile_img and isinstance(profile_img, InMemoryUploadedFile):
                 logger.info("Uploading file: %s", profile_img.name)
-                new_img_url = self._upload_to_ncp(profile_img, "users/profile")
+                new_img_url = self.upload_ncp(profile_img, "users/profile")
                 user.profile_img = new_img_url
                 logger.info("File uploaded successfully: %s", user.profile_img)
 
                 # 기존 이미지 삭제
-                if old_img_url and self._is_ncp_image(old_img_url):
-                    self._delete_from_ncp(old_img_url)
+                if old_img_url and self.ncp_image(old_img_url):
+                    self.delete_ncp(old_img_url)
                     logger.info("Old image deleted: %s", old_img_url)
             else:
                 logger.warning("No valid profile image found")
