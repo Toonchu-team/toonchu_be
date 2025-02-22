@@ -69,11 +69,11 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
-
-        # 닉네임이 없는 경우 랜덤 닉네임 생성
-        nick_name = user_info.get("nick_name")
-        if not nick_name:  # 닉네임이 None 또는 빈 값이면
-            nick_name = RendomNickName()  # 랜덤 닉네임 생성
+        #
+        # # 닉네임이 없는 경우 랜덤 닉네임 생성
+        # nick_name = user_info.get("nick_name")
+        # if not nick_name:  # 닉네임이 None 또는 빈 값이면
+        #     nick_name = RendomNickName()  # 랜덤 닉네임 생성
 
         # 사용자 정보로 DB 조회 및 저장
         try:
@@ -81,7 +81,7 @@ class SocialLoginView(APIView):
                 email=user_info["email"],
                 provider=provider,
                 defaults={
-                    "nick_name": nick_name,  # 닉네임 저장
+                    # "nick_name": nick_name,  # 닉네임 저장
                     "profile_img": user_info.get("profile_image"),
                 },
             )
