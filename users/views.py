@@ -17,6 +17,7 @@ from rest_framework import generics, permissions, serializers, status
 from rest_framework.generics import GenericAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -391,110 +392,46 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
-class UserProfileView(GenericAPIView):
+class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = CustomUser.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
-    @extend_schema(
-        summary="사용자 프로필 조회",
-        description="인증된 사용자의 프로필 정보를 조회합니다.",
-        responses={200: UserProfileSerializer},
-        tags=["User Profile"],
-    )
-    def get(self, request, *args, **kwargs):
-        serializer = self.get_serializer(self.get_object())
-        data = serializer.data
-        return Response(
-            {
-                "message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다",
-                "user": data,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    @extend_schema(
-        summary="사용자 프로필 수정",
-        description="인증된 사용자의 닉네임과 프로필 이미지를 수정합니다.",
-        request=UserProfileSerializer,
-        responses={200: UserProfileSerializer},
-        tags=["User Profile"],
-        parameters=[
-            OpenApiParameter(
-                name="nick_name",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="수정할 닉네임",
-                required=False,
-            ),
-            OpenApiParameter(
-                name="profile_img",
-                type=OpenApiTypes.BINARY,
-                location="form",
-                description="수정할 프로필 이미지",
-                required=False,
-            ),
-        ],
-    )
     def get_object(self):
-        return self.request.user.userprofile
+        return self.request.user
 
-    def get(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def perform_update(self, serializer):
+        """Handles nickname update, profile image upload, and previous image deletion."""
+        user = self.get_object()
 
-    def put(self, request, *args, **kwargs):
-        instance = self.get_object()
-        data = request.data.copy()
+        # Handle nickname update
+        nick_name = self.request.data.get("nick_name")
+        if nick_name:
+            user.nick_name = nick_name
+            user.is_hidden = False
 
-        if "profile_image" in request.FILES:
-            image_url = self.upload_image_to_ncp(request.FILES["profile_image"])
-            if image_url:
-                data["profile_image"] = image_url
+        # Handle profile image upload and previous image deletion
+        profile_img = self.request.FILES.get("profile_img")
+        if profile_img:
+            if user.profile_img:  # Delete previous image
+                user.profile_img.delete(save=False)
+            user.profile_img = profile_img
 
-        serializer = self.get_serializer(instance, data=data, partial=False)
-        serializer.is_valid(raise_exception=True)
+        user.is_updated = timezone.now()
+        user.save()
         serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def patch(self, request, *args, **kwargs):
+    def update(self, request, *args, **kwargs):
+        """Override update to handle the response format."""
+        partial = kwargs.pop("partial", False)
         instance = self.get_object()
-        data = request.data.copy()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
 
-        if "profile_image" in request.FILES:
-            image_url = self.upload_image_to_ncp(request.FILES["profile_image"])
-            if image_url:
-                data["profile_image"] = image_url
-
-        serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        self.perform_update(serializer)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def upload_image_to_ncp(self, file_obj):
-        """
-        Uploads an image to NCP Object Storage and returns the URL.
-        """
-        try:
-            s3 = boto3.client(
-                "s3",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-            )
-            file_name = f"profile_images/{uuid.uuid4().hex}_{file_obj.name}"
-            s3.upload_fileobj(
-                file_obj,
-                settings.AWS_STORAGE_BUCKET_NAME,
-                file_name,
-                ExtraArgs={"ACL": "public-read"},
-            )
-
-            return f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
-
-        except Exception as e:
-            logger.error(f"NCP Upload Failed: {e}")
-            return None
 
 
 class UserWithdrawView(generics.GenericAPIView):

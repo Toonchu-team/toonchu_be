@@ -169,7 +169,7 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files
-MEDIA_URL = "media/"
+# MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
@@ -259,11 +259,10 @@ AWS_ACCESS_KEY_ID = ENV.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = ENV.get("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = ENV.get("AWS_STORAGE_BUCKET_NAME")
 AWS_S3_ENDPOINT_URL = ENV.get("AWS_S3_ENDPOINT_URL")
-AWS_S3_OBJECT_PARAMETERS = {
-    "CacheControl": "max-age=86400",
-}
-AWS_DEFAULT_ACL = "public-read"
-AWS_QUERYSTRING_AUTH = False  # 공개적으로 접근 가능
+AWS_QUERYSTRING_AUTH = False  # URL에 인증 정보를 포함하지 않음
+AWS_DEFAULT_ACL = None
+AWS_S3_FILE_OVERWRITE = False
+AWS_LOCATION = "users/profile"  # 업로드될 디렉토리 지정 (예: 프로필 이미지용)
 
 
 LOGGING = {
