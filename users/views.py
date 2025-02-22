@@ -117,7 +117,6 @@ class SocialLoginView(GenericAPIView):
         # Access Token만 반환
         return Response(
             {
-                "access_token": str(token.access_token),
                 "refresh_token": str(token),
                 "user": {
                     "id": user.id,
@@ -126,6 +125,7 @@ class SocialLoginView(GenericAPIView):
                     "profile_image": user.profile_img.url if user.profile_img else "",
                     "provider": user.provider,
                     "is_hidden": user.is_hidden,
+                    "access_token": str(token.access_token),
                 },
             },
             status=status.HTTP_200_OK,
@@ -405,28 +405,29 @@ class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
     def perform_update(self, serializer):
-        """Handles nickname update, profile image upload, and previous image deletion."""
         user = self.get_object()
 
-        # Handle nickname update
         nick_name = self.request.data.get("nick_name")
+        logger.info(f"User ID: {user.id}, 유저정보 가져오기 성공")
         if nick_name:
             user.nick_name = nick_name
             user.is_hidden = False
 
-        # Handle profile image upload and previous image deletion
         profile_img = self.request.FILES.get("profile_img")
         if profile_img:
-            if user.profile_img:  # Delete previous image
+            if user.profile_img:
                 user.profile_img.delete(save=False)
+                logger.info(f"{user.profile_img} 삭제 완료")
             user.profile_img = profile_img
 
         user.is_updated = timezone.now()
         user.save()
+        logger.info(
+            f"USER:{user.nick_name}, {user.profile_img} 프로필 이미지 저장 성공"
+        )
         serializer.save()
 
     def update(self, request, *args, **kwargs):
-        """Override update to handle the response format."""
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -434,7 +435,23 @@ class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        user = self.get_object()
+        return Response(
+            {
+                "message": "회원 정보가 수정되었습니다.",
+                "user": {
+                    "id": user.id,
+                    "nick_name": user.nick_name,
+                    "email": user.email,
+                    "profile_image": user.profile_img.url if user.profile_img else None,
+                    "provider": user.provider,
+                    "is_adult": user.is_adult,
+                    "is_created": user.is_created,
+                    "is_updated": user.is_updated,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserWithdrawView(generics.GenericAPIView):
