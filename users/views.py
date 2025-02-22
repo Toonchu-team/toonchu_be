@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from users.serializers import (
     LogoutSerializer,
@@ -68,12 +68,14 @@ class SocialLoginView(APIView):
                 {"error": "Invalid social token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
+
+        # logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
         #
         # # 닉네임이 없는 경우 랜덤 닉네임 생성
         # nick_name = user_info.get("nick_name")
+        # is_hidden = False
         # if not nick_name:  # 닉네임이 None 또는 빈 값이면
-        #     nick_name = RendomNickName()  # 랜덤 닉네임 생성
+        #     nick_name, is_hidden = RendomNickName()  # 랜덤 닉네임과 히든 여부 반환
 
         # 사용자 정보로 DB 조회 및 저장
         try:
@@ -83,8 +85,15 @@ class SocialLoginView(APIView):
                 defaults={
                     # "nick_name": nick_name,  # 닉네임 저장
                     "profile_img": user_info.get("profile_image"),
+                    "is_hidden": is_hidden,  # 히든 여부 저장
                 },
             )
+            #
+            # # 닉네임 변경 시 기존 닉네임이 히든이면 is_hidden을 False로 변경
+            # if not created and user.is_hidden:
+            #     user.is_hidden = False
+            #     user.save()
+
         except IntegrityError as e:
             logger.error(f"IntegrityError occurred: {str(e)}")
             return Response(
@@ -92,7 +101,7 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        #  로그인 시 user_active가 False or 0 이면 로그인 불가 처리
+        #  로그인 시 user.is_active가 False or 0 이면 로그인 불가 처리
         if not user.is_active:
             return Response(
                 {"error": "Your account is inactive. Please contact support."},
@@ -261,8 +270,6 @@ class TokenRefreshView(APIView):
 
     def post(self, request):
         auth_header = request.headers.get("Authorization")
-
-        auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
             return Response(
                 {"error": "Bearer token is required"},
@@ -271,10 +278,8 @@ class TokenRefreshView(APIView):
         refresh_token = auth_header.split(" ")[1]
 
         try:
-            # RefreshToken 객체 생성 및 토큰 검증
+            # RefreshToken 검증
             token = RefreshToken(refresh_token)
-
-            # 토큰에서 사용자 ID 추출
             user_id = token.payload.get("user_id")
 
             if not user_id:
@@ -284,32 +289,20 @@ class TokenRefreshView(APIView):
                 )
 
             # 사용자 조회
-            try:
-                user = User.objects.get(id=user_id)
-            except User.DoesNotExist:
-                return Response(
-                    {"error": "User not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            # 저장된 refresh token과 비교
-            if user.refresh_token != refresh_token:
-                return Response(
-                    {"error": "Refresh token does not match"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            user = User.objects.get(id=user_id)
 
             # 새로운 access token 생성
-            new_access_token = str(token.access_token)
-
-            # 리프레시 토큰 재사용 방지 (선택적)
-            user.refresh_token = str(token)  # 새 리프레시 토큰 저장
-            user.save()
+            new_access_token = str(AccessToken.for_user(user))
 
             return Response(
                 {"access_token": new_access_token}, status=status.HTTP_200_OK
             )
 
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         except InvalidToken:
             return Response(
                 {"error": "Invalid refresh token"},

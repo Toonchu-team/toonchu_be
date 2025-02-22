@@ -228,12 +228,15 @@ HIDDEN_NICKNAMES = [
 
 
 def RendomNickName():
+    """랜덤 닉네임 생성 함수: 98% 일반 닉네임, 2% 히든 닉네임."""
+    # 2% 확률로 히든 닉네임 생성
+    if random.random() < 0.02:
+        return (
+            random.choice(HIDDEN_NICKNAMES),
+            True,
+        )  # 히든 닉네임일 경우 is_hidden = True
+
+    # 일반 닉네임 생성 (98%)
     first_name = random.choice(FIRST_NAMES)
     last_name = random.choice(LAST_NAMES)
-
-    # 확률 2%로 적용
-    if random.random() < 0.02:  # 히든 닉네임 2% 확률
-        # CustomUser.is_hidden = 1
-        return random.choice(HIDDEN_NICKNAMES)
-
-    return f"{first_name} {last_name}"  # 일반닉네임 98% 확률
+    return f"{first_name} {last_name}", False  # 일반 닉네임일 경우 is_hidden = False
