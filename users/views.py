@@ -392,119 +392,46 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
-class UserProfileView(APIView):
+class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = [MultiPartParser, FormParser]
 
-    def get(self, request):
-        """사용자 프로필 조회"""
-        user = request.user
-        serializer = UserProfileSerializer(user)
+    def get_object(self):
+        return self.request.user
+
+    def perform_update(self, serializer):
+        """Handles nickname update, profile image upload, and previous image deletion."""
+        user = self.get_object()
+
+        # Handle nickname update
+        nick_name = self.request.data.get("nick_name")
+        if nick_name:
+            user.nick_name = nick_name
+            user.is_hidden = False
+
+        # Handle profile image upload and previous image deletion
+        profile_img = self.request.FILES.get("profile_img")
+        if profile_img:
+            if user.profile_img:  # Delete previous image
+                user.profile_img.delete(save=False)
+            user.profile_img = profile_img
+
+        user.is_updated = timezone.now()
+        user.save()
+        serializer.save()
+
+    def update(self, request, *args, **kwargs):
+        """Override update to handle the response format."""
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def _upload_to_ncp(self, image_file, key_prefix):
-        """이미지를 NCP Object Storage에 업로드"""
-        s3_client = boto3.client(
-            "s3",
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-        )
-
-        file_extension = image_file.name.split(".")[-1]
-        key = f"{key_prefix}/{uuid.uuid4()}.{file_extension}"
-
-        try:
-            s3_client.upload_fileobj(
-                image_file,
-                settings.AWS_STORAGE_BUCKET_NAME,
-                key,
-                ExtraArgs={"ACL": settings.AWS_DEFAULT_ACL},
-            )
-            return f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{key}"
-        except ClientError as e:
-            logger.error(f"NCP upload error: {str(e)}")
-            raise serializers.ValidationError("이미지 업로드에 실패했습니다.")
-
-    def _delete_from_ncp(self, img_url):
-        """NCP Object Storage에서 이미지 삭제"""
-        if not img_url:
-            return
-
-        try:
-            s3_client = boto3.client(
-                "s3",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-            )
-
-            key = img_url.split(f"/{settings.AWS_STORAGE_BUCKET_NAME}/")[-1]
-            s3_client.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key)
-        except ClientError as e:
-            logger.error(f"NCP delete error: {str(e)}")
-
-    @extend_schema(
-        summary="사용자 프로필 수정",
-        description="인증된 사용자의 닉네임과 프로필 이미지를 수정합니다.",
-        request=UserProfileSerializer,
-        responses={200: UserProfileSerializer},
-        tags=["User Profile"],
-        parameters=[
-            OpenApiParameter(
-                name="nick_name",
-                type=OpenApiTypes.STR,
-                location=OpenApiParameter.REQUEST,
-                description="수정할 닉네임",
-                required=False,
-            ),
-            OpenApiParameter(
-                name="profile_img",
-                type=OpenApiTypes.BINARY,
-                location=OpenApiParameter.REQUEST,
-                description="수정할 프로필 이미지",
-                required=False,
-            ),
-        ],
-    )
-    def patch(self, request):
-        """사용자 프로필 수정"""
-        serializer = UserProfileSerializer(
-            instance=request.user, data=request.data, partial=True
-        )
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        user = request.user
-        old_img_url = user.profile_img.url if user.profile_img else None
-
-        try:
-            if "profile_img" in serializer.validated_data:
-                new_img_url = self._upload_to_ncp(
-                    serializer.validated_data["profile_img"], "profile-images"
-                )
-                user.profile_img.name = new_img_url
-
-                if old_img_url and old_img_url.startswith(settings.AWS_S3_ENDPOINT_URL):
-                    self._delete_from_ncp(old_img_url)
-
-            serializer.save()
-
-            return Response(
-                {
-                    "message": "프로필이 성공적으로 수정되었습니다.",
-                    "nick_name": user.nick_name,
-                    "profile_img": user.profile_img.url if user.profile_img else None,
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        except Exception as e:
-            logger.error(f"Profile update error: {str(e)}")
-            return Response(
-                {"message": "프로필 수정 중 오류가 발생했습니다."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
 
 
 class UserWithdrawView(generics.GenericAPIView):

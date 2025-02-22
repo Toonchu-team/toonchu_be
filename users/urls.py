@@ -4,7 +4,7 @@ from .views import (
     LogoutView,
     SocialLoginView,
     TokenRefreshView,
-    UserProfileView,
+    UserProfileUpdateView,
     UserWithdrawView,
 )
 
@@ -15,6 +15,6 @@ urlpatterns = [
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     # User Management URLs
     path("me/logout/", LogoutView.as_view(), name="logout"),
-    path("me/profile/update/", UserProfileView.as_view(), name="profile-update"),
+    path("me/profile/update/", UserProfileUpdateView.as_view(), name="profile-update"),
     path("me/profile/withdraw/", UserWithdrawView.as_view(), name="profile-withdraw"),
 ]
