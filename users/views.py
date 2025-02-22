@@ -27,6 +27,7 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from users.serializers import (
     LogoutSerializer,
     NicknameCheckSerializer,
+    SocialLoginSerializer,
     UserProfileSerializer,
 )
 
@@ -37,8 +38,9 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
-class SocialLoginView(APIView):
+class SocialLoginView(GenericAPIView):
     permission_classes = (permissions.AllowAny,)
+    serializer_class = SocialLoginSerializer
 
     def post(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
@@ -118,11 +120,12 @@ class SocialLoginView(APIView):
                 "access_token": str(token.access_token),
                 "refresh_token": str(token),
                 "user": {
-                    "id": user.id,
-                    "nick_name": user.nick_name,
-                    "email": user.email,
-                    "profile_image": user.profile_img.url if user.profile_img else "",
-                    "provider": user.provider,
+                    "id": User.id,
+                    "nick_name": User.nick_name,
+                    "email": User.email,
+                    "profile_image": User.profile_img.url if user.profile_img else "",
+                    "provider": User.provider,
+                    "is_hidden": User.is_hidden,
                 },
             },
             status=status.HTTP_200_OK,
@@ -266,7 +269,7 @@ class SocialLoginView(APIView):
         return None
 
 
-class TokenRefreshView(APIView):
+class TokenRefreshView(GenericAPIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
