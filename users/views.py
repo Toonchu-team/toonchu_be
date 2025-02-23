@@ -437,7 +437,9 @@ class UserProfileUpdateView(APIView):
         profile_img = self.request.FILES.get("profile_img")
         if profile_img:
             # NCP에 업로드하고 URL을 반환
-            user.profile_img = upload_image_to_ncp(profile_img, str(user.uuid))
+            uploaded_url = upload_image_to_ncp(profile_img, str(user.uuid))
+            user.profile_img = uploaded_url
+            logger.info(f"Profile image uploaded to NCP: {uploaded_url}")
 
         # 프로필 업데이트
         user.is_updated = timezone.now()

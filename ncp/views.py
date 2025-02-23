@@ -6,6 +6,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from users.views import logger
+
 from .serializers import InputFileSerializer
 
 
@@ -33,7 +35,12 @@ def upload_image_to_ncp(image_file, user_uuid):
     s3_client.put_object(Bucket=bucket_name, Key=S3_key, Body=image_file.read())
 
     # URL 반환
-    return f"https://kr.object.ncloudstorage.com/{bucket_name}/{S3_key}"
+    file_url = f"https://kr.object.ncloudstorage.com/{bucket_name}/{S3_key}"
+
+    # Log the URL after upload
+    logger.info(f"Profile image uploaded to NCP: {file_url}")
+
+    return file_url
 
 
 def prefix_exists(s3_client, bucket_name, prefix):
