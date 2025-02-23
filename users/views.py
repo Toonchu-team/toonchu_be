@@ -24,7 +24,6 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from ncp.views import upload_image_to_ncp
 from users.serializers import (
     LogoutSerializer,
     NicknameCheckSerializer,
@@ -36,6 +35,7 @@ from .utils import RendomNickName
 
 User = get_user_model()
 
+# Initialize logger here
 logger = logging.getLogger(__name__)
 
 
@@ -401,6 +401,32 @@ class LogoutView(APIView):
         except Exception as e:
             logger.error(f"Logout error: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+
+def upload_image_to_ncp(file, user_uuid):
+    bucket_name = settings.NCP_BUCKET_NAME
+    region_name = "kr-standard"
+    endpoint_url = "https://kr.object.ncloudstorage.com"
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=settings.NCP_ACCESS_KEY,
+        aws_secret_access_key=settings.NCP_SECRET_KEY,
+        region_name=region_name,
+    )
+
+    folder_path = f"users/profile/{user_uuid}/"
+    file_key = folder_path + file.name
+
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=file_key,
+        Body=file.read(),
+        ContentType=file.content_type,
+    )
+
+    return f"{endpoint_url}/{bucket_name}/{file_key}"
 
 
 class UserProfileUpdateView(APIView):
