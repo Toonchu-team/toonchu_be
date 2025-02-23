@@ -42,6 +42,21 @@ class SocialLoginView(GenericAPIView):
     permission_classes = (permissions.AllowAny,)
     serializer_class = SocialLoginSerializer
 
+    @extend_schema(
+        summary="소셜 로그인",
+        description="Provider(kakao, naver, google)를 통해 소셜 로그인을 진행합니다.",
+        parameters=[
+            OpenApiParameter(
+                name="provider",
+                type=OpenApiTypes.STR,
+                description="소셜 로그인 제공자 (kakao, naver, google)",
+                location=OpenApiParameter.PATH,
+                required=True,
+            ),
+        ],
+        request=SocialLoginSerializer,
+        responses={200: SocialLoginSerializer},
+    )
     def post(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
 
@@ -272,6 +287,16 @@ class SocialLoginView(GenericAPIView):
 class TokenRefreshView(GenericAPIView):
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        summary="Access Token 갱신",
+        description="Refresh Token을 사용하여 새로운 Access Token을 갱신합니다.",
+        responses={
+            200: {"type": "object", "properties": {"access_token": {"type": "string"}}},
+            400: {"type": "object", "properties": {"error": {"type": "string"}}},
+            404: {"type": "object", "properties": {"error": {"type": "string"}}},
+            500: {"type": "object", "properties": {"error": {"type": "string"}}},
+        },
+    )
     def post(self, request):
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
@@ -332,6 +357,16 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
     serializer_class = LogoutSerializer
 
+    @extend_schema(
+        summary="로그아웃",
+        description="Refresh Token을 블랙리스트에 추가하여 로그아웃 처리합니다.",
+        request=LogoutSerializer,
+        responses={
+            200: {"type": "object", "properties": {"message": {"type": "string"}}},
+            400: {"type": "object", "properties": {"error": {"type": "string"}}},
+            403: {"type": "object", "properties": {"error": {"type": "string"}}},
+        },
+    )
     def post(self, request):
         # raise Exception("1123")
         refresh_token = request.data.get("refresh_token")
@@ -401,6 +436,16 @@ class UserProfileUpdateView(APIView):
     def get_object(self):
         return self.request.user
 
+    @extend_schema(
+        summary="사용자 프로필 조회",
+        description="현재 로그인한 사용자의 프로필 정보를 조회합니다.",
+        responses={200: UserProfileSerializer},
+    )
+    def get(self, request, *args, **kwargs):
+        user = self.get_object()
+        serializer = self.serializer_class(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def perform_update(self, serializer):
         user = self.get_object()
         logger.info(f"User ID: {user.id}, 유저정보 가져오기 성공")
@@ -426,6 +471,12 @@ class UserProfileUpdateView(APIView):
 
         serializer.save()
 
+    @extend_schema(
+        summary="사용자 프로필 업데이트 (PATCH)",
+        description="현재 로그인한 사용자의 프로필 정보를 업데이트합니다. 닉네임과 프로필 이미지를 수정할 수 있습니다.",
+        request=UserProfileSerializer,
+        responses={200: UserProfileSerializer},
+    )
     def patch(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
@@ -434,10 +485,7 @@ class UserProfileUpdateView(APIView):
         self.perform_update(serializer)
 
         return Response(
-            {
-                "message": "회원 정보가 수정되었습니다.",
-                "user": serializer.data,
-            },
+            serializer.data,
             status=status.HTTP_200_OK,
         )
 
