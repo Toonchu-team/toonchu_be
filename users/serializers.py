@@ -30,12 +30,30 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    profile_img = serializers.ImageField(required=False)  # 파일 업로드 지원
+    profile_img = serializers.URLField(required=False, allow_null=True)  # URL 반환
 
     class Meta:
         model = User
-        fields = ("email", "nick_name", "profile_img", "is_hidden", "is_updated")
-        read_only_fields = ("email", "is_hidden", "is_updated")
+        fields = (
+            "id",
+            "email",
+            "nick_name",
+            "profile_img",
+            "provider",
+            "is_adult",
+            "is_hidden",
+            "is_created",
+            "is_updated",
+        )
+        read_only_fields = (
+            "id",
+            "email",
+            "provider",
+            "is_adult",
+            "is_hidden",
+            "is_created",
+            "is_updated",
+        )
 
     def validate_nick_name(self, value):
         MinLengthValidator(2)(value)
