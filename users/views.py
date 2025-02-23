@@ -125,8 +125,8 @@ class SocialLoginView(GenericAPIView):
                     "profile_image": user.profile_img.url if user.profile_img else "",
                     "provider": user.provider,
                     "is_hidden": user.is_hidden,
-                    "access_token": str(token.access_token),
                 },
+                "access_token": str(token.access_token),
             },
             status=status.HTTP_200_OK,
         )
@@ -324,34 +324,6 @@ class TokenRefreshView(GenericAPIView):
             )
 
 
-# class LogoutView(APIView):
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = [IsAuthenticated]
-#
-#     def post(self, request):
-#         print(request.data)
-#         try:
-#             refresh_token = request.data.get("refresh_token")
-#
-#             if refresh_token:
-#                 serializer = LogoutSerializer(data=request.data)
-#                 if serializer.is_valid():
-#                     token = serializer.data.get("refresh_token")
-#                     token.blacklist()
-#                     logger.debug(f"Token blacklist: {token}")
-#
-#                 return Response(
-#                     {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-#                 )
-#             else:
-#                 return Response(
-#                     {"error": "리프레시 토큰이 제공되지 않았습니다."},
-#                     status=status.HTTP_400_BAD_REQUEST,
-#                 )
-#         except Exception as e:
-#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
 CustomUser = get_user_model()
 
 
@@ -395,6 +367,33 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
+def upload_image_to_ncp(file, user_uuid):
+    """Uploads an image to NCP Object Storage and returns the URL."""
+    bucket_name = settings.NCP_BUCKET_NAME
+    region_name = "kr-standard"
+    endpoint_url = "https://kr.object.ncloudstorage.com"
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=settings.NCP_ACCESS_KEY,
+        aws_secret_access_key=settings.NCP_SECRET_KEY,
+        region_name=region_name,
+    )
+
+    folder_path = f"users/profile/{user_uuid}/"
+    file_key = folder_path + file.name
+
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=file_key,
+        Body=file.read(),
+        ContentType=file.content_type,
+    )
+
+    return f"{endpoint_url}/{bucket_name}/{file_key}"
+
+
 class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserProfileSerializer
@@ -418,7 +417,7 @@ class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
             if user.profile_img:
                 user.profile_img.delete(save=False)
                 logger.info(f"{user.profile_img} 삭제 완료")
-            user.profile_img = profile_img
+            user.profile_img = upload_image_to_ncp(profile_img)
 
         user.is_updated = timezone.now()
         user.save()
@@ -431,24 +430,13 @@ class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
-
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
-        user = self.get_object()
         return Response(
             {
                 "message": "회원 정보가 수정되었습니다.",
-                "user": {
-                    "id": user.id,
-                    "nick_name": user.nick_name,
-                    "email": user.email,
-                    "profile_image": user.profile_img.url if user.profile_img else None,
-                    "provider": user.provider,
-                    "is_adult": user.is_adult,
-                    "is_created": user.is_created,
-                    "is_updated": user.is_updated,
-                },
+                "user": serializer.data,
             },
             status=status.HTTP_200_OK,
         )

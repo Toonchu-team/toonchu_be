@@ -12,7 +12,7 @@ class BookmarkListCreateView(generics.ListCreateAPIView):
         return Bookmark.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        webtoon_id = self.request.data.get["webtoon"]
+        webtoon_id = self.request.data.get("webtoon")
         existing_bookmarks = Bookmark.objects.filter(
             user=self.request.user, webtoon_id=webtoon_id
         )
