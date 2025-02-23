@@ -313,9 +313,6 @@ class TokenRefreshView(GenericAPIView):
             )
 
 
-CustomUser = get_user_model()
-
-
 class LogoutView(APIView):
     # authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
