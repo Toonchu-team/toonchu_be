@@ -117,6 +117,7 @@ class SocialLoginView(GenericAPIView):
         # Access Token만 반환
         return Response(
             {
+                "access_token": str(token.access_token),
                 "refresh_token": str(token),
                 "user": {
                     "id": user.id,
@@ -126,7 +127,6 @@ class SocialLoginView(GenericAPIView):
                     "provider": user.provider,
                     "is_hidden": user.is_hidden,
                 },
-                "access_token": str(token.access_token),
             },
             status=status.HTTP_200_OK,
         )
