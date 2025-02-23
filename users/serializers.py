@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MaxLengthValidator, MinLengthValidator
 from rest_framework import serializers
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, UntypedToken
 
 User = get_user_model()
 
@@ -84,8 +84,19 @@ class TokenRefreshSerializer(serializers.Serializer):
             raise serializers.ValidationError({"error": "Refresh token is required."})
 
         try:
+            # 토큰 구조 검증
+            UntypedToken(refresh_token)
+            # RefreshToken 인스턴스 생성 및 유효성 검증
             refresh = RefreshToken(refresh_token)
-            refresh.verify()  # 토큰 유효성 검증
-            return {"access": str(refresh.access_token)}
-        except TokenError as e:
+            refresh.verify()  # 서명 및 만료 검증
+
+            # 새로운 액세스 토큰 생성
+            new_access_token = str(refresh.access_token)
+            print(
+                f"New access token generated: {new_access_token[:10]}..."
+            )  # 로깅 추가
+            return {"access": new_access_token}
+
+        except (TokenError, InvalidToken) as e:
+            print(f"Token validation failed: {str(e)}")  # 로깅 추가
             raise serializers.ValidationError({"error": str(e)})
