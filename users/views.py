@@ -304,10 +304,8 @@ class TokenRefreshView(GenericAPIView):
         try:
             serializer.is_valid(raise_exception=True)
             return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        except InvalidToken as e:
-            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
         except serializers.ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(e.detail, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
             return Response(
                 {"error": "An unexpected error occurred."},

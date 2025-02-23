@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MaxLengthValidator, MinLengthValidator
 from rest_framework import serializers
-from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
@@ -81,10 +81,11 @@ class TokenRefreshSerializer(serializers.Serializer):
         refresh_token = attrs.get("refresh")
 
         if not refresh_token:
-            raise serializers.ValidationError("Refresh token is required.")
+            raise serializers.ValidationError({"error": "Refresh token is required."})
 
         try:
-            refresh = RefreshToken(refresh_token)  # RefreshToken 인스턴스 생성
-            return {"access": str(refresh.access_token)}  # 새 Access Token 반환
-        except Exception as e:
-            raise InvalidToken("The refresh token is invalid or expired.") from e
+            refresh = RefreshToken(refresh_token)
+            refresh.verify()  # 토큰 유효성 검증
+            return {"access": str(refresh.access_token)}
+        except TokenError as e:
+            raise serializers.ValidationError({"error": str(e)})
