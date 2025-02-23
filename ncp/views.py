@@ -1,3 +1,6 @@
+# from users.views import logger  # Remove this line
+import logging
+
 import boto3
 from boto3.s3.inject import upload_file
 from django.conf import settings
@@ -6,7 +9,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from users.views import logger
+logger = logging.getLogger(__name__)  # Initialize the logger in this module instead.
 
 from .serializers import InputFileSerializer
 
