@@ -28,6 +28,7 @@ from users.serializers import (
     LogoutSerializer,
     NicknameCheckSerializer,
     SocialLoginSerializer,
+    TokenRefreshSerializer,
     UserProfileSerializer,
 )
 
@@ -287,65 +288,29 @@ class SocialLoginView(GenericAPIView):
 
 class TokenRefreshView(GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = TokenRefreshSerializer
 
     @extend_schema(
         summary="Access Token 갱신",
         description="Refresh Token을 사용하여 새로운 Access Token을 갱신합니다.",
         responses={
-            200: {"type": "object", "properties": {"access_token": {"type": "string"}}},
+            200: {"type": "object", "properties": {"access": {"type": "string"}}},
             400: {"type": "object", "properties": {"error": {"type": "string"}}},
-            404: {"type": "object", "properties": {"error": {"type": "string"}}},
-            500: {"type": "object", "properties": {"error": {"type": "string"}}},
+            401: {"type": "object", "properties": {"error": {"type": "string"}}},
         },
     )
     def post(self, request):
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return Response(
-                {"error": "Bearer token is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        refresh_token = auth_header.split(" ")[1]
-
+        serializer = self.get_serializer(data=request.data)
         try:
-            # RefreshToken 검증
-            token = RefreshToken(refresh_token)
-            user_id = token.payload.get("user_id")
-
-            if not user_id:
-                return Response(
-                    {"error": "Invalid refresh token"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # 사용자 조회
-            user = User.objects.get(id=user_id)
-
-            # 새로운 access token 생성
-            new_access_token = str(AccessToken.for_user(user))
-
-            return Response(
-                {"access_token": new_access_token}, status=status.HTTP_200_OK
-            )
-
-        except User.DoesNotExist:
-            return Response(
-                {"error": "User not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        except InvalidToken:
-            return Response(
-                {"error": "Invalid refresh token"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except TokenError:
-            return Response(
-                {"error": "Expired refresh token"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        except InvalidToken as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+        except serializers.ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response(
-                {"error": str(e)},
+                {"error": "An unexpected error occurred."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
