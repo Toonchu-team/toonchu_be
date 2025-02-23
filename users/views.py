@@ -24,6 +24,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
+from ncp.views import upload_image_to_ncp
 from users.serializers import (
     LogoutSerializer,
     NicknameCheckSerializer,
@@ -402,39 +403,15 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
-def upload_image_to_ncp(file, user_uuid):
-    """Uploads an image to NCP Object Storage and returns the URL."""
-    bucket_name = settings.NCP_BUCKET_NAME
-    region_name = "kr-standard"
-    endpoint_url = "https://kr.object.ncloudstorage.com"
-
-    s3_client = boto3.client(
-        "s3",
-        endpoint_url=endpoint_url,
-        aws_access_key_id=settings.NCP_ACCESS_KEY,
-        aws_secret_access_key=settings.NCP_SECRET_KEY,
-        region_name=region_name,
-    )
-
-    folder_path = f"users/profile/{user_uuid}/"
-    file_key = folder_path + file.name
-
-    s3_client.put_object(
-        Bucket=bucket_name,
-        Key=file_key,
-        Body=file.read(),
-        ContentType=file.content_type,
-    )
-
-    return f"{endpoint_url}/{bucket_name}/{file_key}"
-
-
 class UserProfileUpdateView(APIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
         return self.request.user
+
+    def get_serializer(self, *args, **kwargs):
+        return self.serializer_class(*args, **kwargs)
 
     @extend_schema(
         summary="사용자 프로필 조회",
@@ -443,7 +420,7 @@ class UserProfileUpdateView(APIView):
     )
     def get(self, request, *args, **kwargs):
         user = self.get_object()
-        serializer = self.serializer_class(user)
+        serializer = self.get_serializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def perform_update(self, serializer):
