@@ -59,7 +59,6 @@ class WebtoonCreateView(CreateAPIView):
         description="웹툰 전체 list 불러오는 api",
         tags=["Webtoons"],
     )
-
     def get(self, request):
         webtoons = Webtoon.objects.all()
         serializer = WebtoonsSerializer(webtoons, many=True)
@@ -186,6 +185,7 @@ class SearchByTagView(APIView):
         serializer = WebtoonsSerializer(filtered_webtoons, many=True)
         return Response(serializer.data)
 
+
 class ListView(APIView):
     permission_classes = [AllowAny]
     serializer_class = WebtoonsSerializer
@@ -221,10 +221,9 @@ class ListView(APIView):
             ),
         ],
     )
-
     def get(self, request):
-        day = request.query_params.get("day","mon")
-        status = request.query_params.get("status","")
+        day = request.query_params.get("day", "mon")
+        status = request.query_params.get("status", "")
         sort = self.request.query_params.get("sort", "popular")
         tag_ids = request.GET.getlist("id")
         webtoons = Webtoon.objects.all()
