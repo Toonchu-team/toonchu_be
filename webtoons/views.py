@@ -61,7 +61,7 @@ class SearchByIntegrateView(APIView):
                 name="provider",
                 description="웹툰 플랫폼",
                 type=str,
-                enum=["naver", "kakaowebtoon", "kakaopage", "others"],
+                enum=["all", "naver", "kakaowebtoon", "kakaopage", "postype", "others"],
             ),
             OpenApiParameter(name="tag", description="웹툰 태그", type=str),
             OpenApiParameter(name="term", description="검색어", type=str),
@@ -82,9 +82,9 @@ class SearchByIntegrateView(APIView):
 
         queryset = Webtoon.objects.all()
 
-        if provider:
+        if provider and provider != "all":
             queryset = queryset.filter(
-                platform=provider
+                platform__iexact=provider
             )  # platform__iexact 사용 유무(영어 대소문자관련 일치여부 확인용)
 
         if tags:

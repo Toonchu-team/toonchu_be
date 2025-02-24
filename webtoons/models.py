@@ -7,9 +7,11 @@ from users.models import CustomUser
 
 class Webtoon(CommonModel):
     PLATFORM_CHOICES = [
+        ("all", "전체"),
         ("naver", "네이버"),
         ("kakaopage", "카카오페이지"),
         ("kakao", "카카오웹툰"),
+        ("postype", "포스타입"),
         ("others", "기타"),
     ]
     CYCLE_CHOICES = [
@@ -47,9 +49,7 @@ class Webtoon(CommonModel):
     platform = models.CharField(
         max_length=20, choices=PLATFORM_CHOICES, null=False, blank=False
     )
-    serialization_cycle = models.CharField(
-        max_length=20, choices=CYCLE_CHOICES, null=False, blank=False
-    )
+    serialization_cycle = models.CharField(max_length=20, choices=CYCLE_CHOICES)
     serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES)
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
