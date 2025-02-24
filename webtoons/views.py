@@ -2,7 +2,6 @@ import json
 import os
 
 import requests
-from blib2to3.pgen2.tokenize import singleprog
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from drf_spectacular.utils import (
@@ -44,6 +43,9 @@ class WebtoonCreateView(CreateAPIView):
     def post(self, request, *args, **kwargs):
         data = {key: value for key, value in request.data.items()}
         data["tags"] = json.loads(request.data["tags"])
+        # thumbnail_url = thumbnail_handler(request)
+        # if thumbnail_url:
+        #     data["thumbnail"] = thumbnail_url
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -222,7 +224,7 @@ class ListView(APIView):
 
     def get(self, request):
         day = request.query_params.get("day","mon")
-        status = request.query_params.get("status","all")
+        status = request.query_params.get("status","")
         sort = self.request.query_params.get("sort", "popular")
         tag_ids = request.GET.getlist("id")
         webtoons = Webtoon.objects.all()
@@ -232,11 +234,12 @@ class ListView(APIView):
             webtoons = Webtoon.objects.filter(serial_day__iexact=day)
 
         # 상태 필터링
-        if status or status != "all":
-            if status == "new":
-                webtoons = webtoons.filter(is_new=True)
-            elif status == "completed":
-                webtoons = webtoons.filter(is_completed=True)
+        if status == "new":
+            webtoons = webtoons.filter(is_new=True)
+        elif status == "completed":
+            webtoons = webtoons.filter(is_completed=True)
+        else:
+            webtoons = Webtoon.objects.all()
 
         # 태그 필터링
         if tag_ids:
