@@ -30,8 +30,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    profile_img = serializers.ImageField(required=False)  # 파일 업로드 지원
+
     class Meta:
-        model = User  # 변경: CustomUser -> User
+        model = User
         fields = [
             "id",
             "email",

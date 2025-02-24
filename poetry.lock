@@ -78,6 +78,44 @@ jupyter = ["ipython (>=7.8.0)", "tokenize-rt (>=3.2.0)"]
 uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
+name = "boto3"
+version = "1.35.97"
+description = "The AWS SDK for Python"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "boto3-1.35.97-py3-none-any.whl", hash = "sha256:8e49416216a6e3a62c2a0c44fba4dd2852c85472e7b702516605b1363867d220"},
+    {file = "boto3-1.35.97.tar.gz", hash = "sha256:7d398f66a11e67777c189d1f58c0a75d9d60f98d0ee51b8817e828930bf19e4e"},
+]
+
+[package.dependencies]
+botocore = ">=1.35.97,<1.36.0"
+jmespath = ">=0.7.1,<2.0.0"
+s3transfer = ">=0.10.0,<0.11.0"
+
+[package.extras]
+crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
+
+[[package]]
+name = "botocore"
+version = "1.35.99"
+description = "Low-level, data-driven core of boto 3."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "botocore-1.35.99-py3-none-any.whl", hash = "sha256:b22d27b6b617fc2d7342090d6129000af2efd20174215948c0d7ae2da0fab445"},
+    {file = "botocore-1.35.99.tar.gz", hash = "sha256:1eab44e969c39c5f3d9a3104a0836c24715579a455f12b3979a31d7cde51b3c3"},
+]
+
+[package.dependencies]
+jmespath = ">=0.7.1,<2.0.0"
+python-dateutil = ">=2.1,<3.0.0"
+urllib3 = {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""}
+
+[package.extras]
+crt = ["awscrt (==0.22.0)"]
+
+[[package]]
 name = "certifi"
 version = "2025.1.31"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -216,13 +254,13 @@ files = [
 
 [[package]]
 name = "django"
-version = "5.1.5"
+version = "5.1.6"
 description = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "Django-5.1.5-py3-none-any.whl", hash = "sha256:c46eb936111fffe6ec4bc9930035524a8be98ec2f74d8a0ff351226a3e52f459"},
-    {file = "Django-5.1.5.tar.gz", hash = "sha256:19bbca786df50b9eca23cee79d495facf55c8f5c54c529d9bf1fe7b5ea086af3"},
+    {file = "Django-5.1.6-py3-none-any.whl", hash = "sha256:8d203400bc2952fbfb287c2bbda630297d654920c72a73cc82a9ad7926feaad5"},
+    {file = "Django-5.1.6.tar.gz", hash = "sha256:1e39eafdd1b185e761d9fab7a9f0b9fa00af1b37b25ad980a8aa0dac13535690"},
 ]
 
 [package.dependencies]
@@ -233,6 +271,21 @@ tzdata = {version = "*", markers = "sys_platform == \"win32\""}
 [package.extras]
 argon2 = ["argon2-cffi (>=19.1.0)"]
 bcrypt = ["bcrypt"]
+
+[[package]]
+name = "django-cors-headers"
+version = "4.7.0"
+description = "django-cors-headers is a Django application for handling the server headers required for Cross-Origin Resource Sharing (CORS)."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "django_cors_headers-4.7.0-py3-none-any.whl", hash = "sha256:f1c125dcd58479fe7a67fe2499c16ee38b81b397463cf025f0e2c42937421070"},
+    {file = "django_cors_headers-4.7.0.tar.gz", hash = "sha256:6fdf31bf9c6d6448ba09ef57157db2268d515d94fc5c89a0a1028e1fc03ee52b"},
+]
+
+[package.dependencies]
+asgiref = ">=3.6"
+django = ">=4.2"
 
 [[package]]
 name = "django-multiselectfield"
@@ -247,6 +300,29 @@ files = [
 
 [package.dependencies]
 django = ">=1.4"
+
+[[package]]
+name = "django-storages"
+version = "1.14.5"
+description = "Support for many storage backends in Django"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "django_storages-1.14.5-py3-none-any.whl", hash = "sha256:5ce9c69426f24f379821fd688442314e4aa03de87ae43183c4e16915f4c165d4"},
+    {file = "django_storages-1.14.5.tar.gz", hash = "sha256:ace80dbee311258453e30cd5cfd91096b834180ccf09bc1f4d2cb6d38d68571a"},
+]
+
+[package.dependencies]
+Django = ">=3.2"
+
+[package.extras]
+azure = ["azure-core (>=1.13)", "azure-storage-blob (>=12)"]
+boto3 = ["boto3 (>=1.4.4)"]
+dropbox = ["dropbox (>=7.2.1)"]
+google = ["google-cloud-storage (>=1.32)"]
+libcloud = ["apache-libcloud"]
+s3 = ["boto3 (>=1.4.4)"]
+sftp = ["paramiko (>=1.15)"]
 
 [[package]]
 name = "djangorestframework"
@@ -369,6 +445,17 @@ files = [
 [package.extras]
 colors = ["colorama"]
 plugins = ["setuptools"]
+
+[[package]]
+name = "jmespath"
+version = "1.0.1"
+description = "JSON Matching Expressions"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "jmespath-1.0.1-py3-none-any.whl", hash = "sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980"},
+    {file = "jmespath-1.0.1.tar.gz", hash = "sha256:90261b206d6defd58fdd5e85f478bf633a2901798906be2ad389150c5c60edbe"},
+]
 
 [[package]]
 name = "jsonschema"
@@ -575,6 +662,20 @@ crypto = ["cryptography (>=3.4.0)"]
 dev = ["coverage[toml] (==5.0.4)", "cryptography (>=3.4.0)", "pre-commit", "pytest (>=6.0.0,<7.0.0)", "sphinx", "sphinx-rtd-theme", "zope.interface"]
 docs = ["sphinx", "sphinx-rtd-theme", "zope.interface"]
 tests = ["coverage[toml] (==5.0.4)", "pytest (>=6.0.0,<7.0.0)"]
+
+[[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+description = "Extensions to the standard Python datetime module"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+files = [
+    {file = "python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3"},
+    {file = "python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"},
+]
+
+[package.dependencies]
+six = ">=1.5"
 
 [[package]]
 name = "python-dotenv"
@@ -802,6 +903,34 @@ files = [
 ]
 
 [[package]]
+name = "s3transfer"
+version = "0.10.4"
+description = "An Amazon S3 Transfer Manager"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "s3transfer-0.10.4-py3-none-any.whl", hash = "sha256:244a76a24355363a68164241438de1b72f8781664920260c48465896b712a41e"},
+    {file = "s3transfer-0.10.4.tar.gz", hash = "sha256:29edc09801743c21eb5ecbc617a152df41d3c287f67b615f73e5f750583666a7"},
+]
+
+[package.dependencies]
+botocore = ">=1.33.2,<2.0a.0"
+
+[package.extras]
+crt = ["botocore[crt] (>=1.33.2,<2.0a.0)"]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+description = "Python 2 and 3 compatibility utilities"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+files = [
+    {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
+    {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
+]
+
+[[package]]
 name = "sqlparse"
 version = "0.5.3"
 description = "A non-validating SQL parser."
@@ -869,4 +998,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "8666c97f4d97e55ae929c0b5444e1ab55a384bd6ab23aac90b3a70616e9404aa"
+content-hash = "6e1699da7ae5d144c3f3c044c19db5361191557ce20c6a8e9d1497ef557f38a2"

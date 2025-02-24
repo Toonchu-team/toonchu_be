@@ -10,10 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import sys
 from datetime import timedelta
 from pathlib import Path
 
+import boto3
 from dotenv import dotenv_values
+from storages.backends import s3
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -30,13 +33,20 @@ SECRET_KEY = ENV.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "https://toonchu-fe.vercel.app/",
+    "http://be.toonchu.kro.kr/",
+    ENV.get("DB_HOST"),
+]
 
 # Application definition
 CUSTOM_APPS = [
     "users",
     "webtoons",
     "bookmark",
+    "corsheaders",
 ]
 
 SYSTEM_APPS = [
@@ -53,12 +63,13 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
+    "storages",
 ]
 
 INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS  # + ['corsheaders']
 
 MIDDLEWARE = [
-    # "corsheaders.middleware.CorsMiddleware", 설치가 안됨 잠시 주석처리함
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -220,7 +231,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
-    "https://toonchu-fe.vercel.app/",
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
@@ -229,3 +239,90 @@ GOOGLE_OAUTH2_SCOPE = ["email", "profile"]  # 새로운 설정 추가
 
 
 # FRONTEND_URL = "https://toonchu-fe.vercel.app/"
+
+# s3 = boto3.client('s3', aws_access_key_id=ENV.get("ACCESS_KEY"), aws_secret_access_key=ENV.get("SECRET_KEY"))
+# response = s3.list_buckets()
+# buckets = [bucket['NAME'] for bucket in response['Buckets']]
+#
+# # 파일 업로드
+# s3.upload_file('myfile-txt', 'my_bucket', 'myfile.txt')
+# # 파일 다운로드
+# s3.download_file('my_bucket', 'myfile.txt', 'myfile_downloaded.txt')
+# # 파일 삭제
+# s3.delete_file(Bucket='my_bucket', Key='myfile.txt')
+
+# s3 = boto3.client('s3', endpoint_url='https://your_endpoint_url', aws_access_key_id='YOUR_ACCESS_KEY', aws_secret_access_key='YOUR_SECRET_KEY')
+#
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+AWS_ACCESS_KEY_ID = ENV.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = ENV.get("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = ENV.get("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = "ap-northeast-2"  # 한국 리전
+AWS_S3_ENDPOINT_URL = ENV.get("AWS_S3_ENDPOINT_URL")
+AWS_S3_OBJECT_PARAMETERS = {
+    "CacheControl": "max-age=86400",
+}
+AWS_DEFAULT_ACL = "public-read"
+AWS_QUERYSTRING_AUTH = False  # 공개적으로 접근 가능
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
+            "datefmt": "%d/%b/%Y %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "console.info": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+        "console.error": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+        "logger.info": {
+            "level": "INFO",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "logger.warning": {
+            "level": "WARNING",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "logger.error": {
+            "level": "ERROR",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+    },
+}

@@ -7,9 +7,11 @@ from users.models import CustomUser
 
 class Webtoon(CommonModel):
     PLATFORM_CHOICES = [
+        ("all", "전체"),
         ("naver", "네이버"),
         ("kakaopage", "카카오페이지"),
         ("kakao", "카카오웹툰"),
+        ("postype", "포스타입"),
         ("others", "기타"),
     ]
     CYCLE_CHOICES = [
@@ -32,7 +34,7 @@ class Webtoon(CommonModel):
     APPROVAL_STATUS = [
         ("pending", "승인요청중"),
         ("approved", "승인됨"),
-        ("rejected", "거절됨")
+        ("rejected", "거절됨"),
     ]
     title = models.CharField(max_length=100, null=False, blank=False)
     author = models.CharField(max_length=50, null=False, blank=False)
@@ -47,13 +49,13 @@ class Webtoon(CommonModel):
     platform = models.CharField(
         max_length=20, choices=PLATFORM_CHOICES, null=False, blank=False
     )
-    serialization_cycle = models.CharField(
-        max_length=20, choices=CYCLE_CHOICES, null=False, blank=False
-    )
+    serialization_cycle = models.CharField(max_length=20, choices=CYCLE_CHOICES)
     serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES)
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
-    is_approved = models.CharField(max_length=20, choices=APPROVAL_STATUS, default="pending", null=False, blank=False)
+    is_approved = models.CharField(
+        max_length=20, choices=APPROVAL_STATUS, default="pending"
+    )
     # user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
 
