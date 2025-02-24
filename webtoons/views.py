@@ -52,6 +52,12 @@ class WebtoonCreateView(CreateAPIView):
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
 
+    @extend_schema(
+        summary="웹툰 전체 api",
+        description="웹툰 전체 list 불러오는 api",
+        tags=["Webtoons"],
+    )
+
     def get(self, request):
         webtoons = Webtoon.objects.all()
         serializer = WebtoonsSerializer(webtoons, many=True)
@@ -178,13 +184,13 @@ class SearchByTagView(APIView):
         serializer = WebtoonsSerializer(filtered_webtoons, many=True)
         return Response(serializer.data)
 
-
-class ListByDayView(APIView):
+class ListView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = WebtoonsSerializer
 
     @extend_schema(
-        summary="요일별/연재유무별 웹툰 리스트",
-        description="요일별, 신작, 연재유무별 로 웹툰 리스트 표현",
+        summary="웹툰 정렬 리스트 Get",
+        description="인기순, 조회순, 등록순, 연재일순(최신순)/요일발/신작유무/완결유무별 리스트 정렬 api",
         tags=["Webtoons list"],
         parameters=[
             OpenApiParameter(
@@ -199,40 +205,6 @@ class ListByDayView(APIView):
                 type=str,
                 enum=["all", "new", "completed"],
             ),
-        ],
-        request=WebtoonsSerializer,
-        responses={
-            200: WebtoonsSerializer(many=True),
-            400: OpenApiTypes.OBJECT,
-        },
-    )
-    def get(self, request):
-        day = request.query_params.get("day", "")
-        status = request.query_params.get("status")
-        queryset = Webtoon.objects.all()
-
-        if day:
-            queryset = queryset.filter(serial_day__iexact=day)
-
-            if status == "new":
-                queryset = queryset.filter(is_new=True)
-
-            elif status == "completed":
-                queryset = queryset.filter(is_completed=True)
-
-        serializer = WebtoonsSerializer(queryset, many=True)
-        return Response(serializer.data)
-
-
-class ListView(APIView):
-    permission_classes = [AllowAny]
-    serializer_class = WebtoonsSerializer
-
-    @extend_schema(
-        summary="웹툰 정렬 리스트 Get",
-        description="인기순, 조회순, 등록순, 연재일순(최신순) 정렬 api",
-        tags=["Webtoons list"],
-        parameters=[
             OpenApiParameter(
                 name="sort",
                 description="정렬할 순서 이름",
@@ -247,20 +219,26 @@ class ListView(APIView):
             ),
         ],
     )
-    def get(self, request):
-        # 순서 정렬
-        sort = self.request.query_params.get("sort", "popular")
-        sort_mapping = {
-            "popular": "-like_count",
-            "view": "-view_count",
-            "created": "-created_at",
-            "latest": "-publication_day",
-        }
-        ordering = sort_mapping.get(sort, "-like_count")
-        tag_ids = request.GET.getlist("id")
 
+    def get(self, request):
+        day = request.query_params.get("day","mon")
+        status = request.query_params.get("status","all")
+        sort = self.request.query_params.get("sort", "popular")
+        tag_ids = request.GET.getlist("id")
         webtoons = Webtoon.objects.all()
 
+        # 요일 필터링
+        if day:
+            webtoons = Webtoon.objects.filter(serial_day__iexact=day)
+
+        # 상태 필터링
+        if status or status != "all":
+            if status == "new":
+                webtoons = webtoons.filter(is_new=True)
+            elif status == "completed":
+                webtoons = webtoons.filter(is_completed=True)
+
+        # 태그 필터링
         if tag_ids:
             webtoons = (
                 Webtoon.objects.filter(webtoon_tags__tag__id__in=tag_ids)
@@ -271,6 +249,14 @@ class ListView(APIView):
                 )
                 .filter(matching_tags=len(tag_ids))
             )
+
+        sort_mapping = {
+            "popular": "-like_count",
+            "view": "-view_count",
+            "created": "-created_at",
+            "latest": "-publication_day",
+        }
+        ordering = sort_mapping.get(sort, "-like_count")
 
         webtoons = webtoons.order_by(ordering)
 
