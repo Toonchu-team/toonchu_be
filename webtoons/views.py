@@ -53,9 +53,10 @@ class WebtoonCreateView(CreateAPIView):
         )
 
     def get(self, request):
-        webtoons= Webtoon.objects.all()
+        webtoons = Webtoon.objects.all()
         serializer = WebtoonsSerializer(webtoons, many=True)
         return Response(serializer.data)
+
 
 class SearchByIntegrateView(APIView):
     permission_classes = [AllowAny]
