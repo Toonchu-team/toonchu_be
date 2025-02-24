@@ -2,6 +2,7 @@ import json
 import os
 
 import requests
+from blib2to3.pgen2.tokenize import singleprog
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from drf_spectacular.utils import (
@@ -50,6 +51,11 @@ class WebtoonCreateView(CreateAPIView):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
+
+    def get(self, request):
+        webtoons = Webtoon.objects.all()
+        serializer = WebtoonsSerializer(webtoons, many=True)
+        return Response(serializer.data)
 
 
 class SearchByIntegrateView(APIView):
