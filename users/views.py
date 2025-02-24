@@ -417,7 +417,7 @@ class UserProfileUpdateView(APIView):
         nick_name = self.request.data.get("nick_name")
         if nick_name:
             user.nick_name = nick_name
-            user.is_hidden = False
+            # user.is_hidden = False    프론트 요청으로 주석 처리
 
         # 프로필 이미지 수정
         profile_img = self.request.FILES.get("profile_img")
