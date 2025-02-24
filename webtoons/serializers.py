@@ -20,6 +20,7 @@ class WebtoonsSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, required=False)
     like_count = serializers.IntegerField(read_only=True)
     view_count = serializers.IntegerField(read_only=True)
+    serial_day = serializers.MultipleChoiceField(choices=Webtoon.SERIAL_DAY_CHOICES)
 
     class Meta:
         model = Webtoon

@@ -3,7 +3,7 @@ import os
 
 import requests
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import JsonResponse, QueryDict
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
@@ -42,10 +42,11 @@ class WebtoonCreateView(CreateAPIView):
     )
     def post(self, request, *args, **kwargs):
         data = {key: value for key, value in request.data.items()}
-        data["tags"] = json.loads(request.data["tags"])
-        # thumbnail_url = thumbnail_handler(request)
-        # if thumbnail_url:
-        #     data["thumbnail"] = thumbnail_url
+        if "tags" in data:
+            data["tags"] = json.loads(request.data["tags"])
+
+        thumbnail_url = thumbnail_handler(request)
+        data["thumbnail"] = thumbnail_url if request.FILES.get("thumbnail") else None
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -53,6 +54,7 @@ class WebtoonCreateView(CreateAPIView):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
+
 
     @extend_schema(
         summary="웹툰 전체 api",
@@ -230,7 +232,7 @@ class ListView(APIView):
 
         # 요일 필터링
         if day:
-            webtoons = Webtoon.objects.filter(serial_day__iexact=day)
+            webtoons = webtoons.filter(Q(serial_day__regex=r'\b{}\b'.format(day)))
 
         # 상태 필터링
         if status == "new":
