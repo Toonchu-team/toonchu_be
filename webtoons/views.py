@@ -248,8 +248,6 @@ class ListView(APIView):
             webtoons = webtoons.filter(is_new=True)
         elif status == "completed":
             webtoons = webtoons.filter(is_completed=True)
-        elif status == "all":
-            webtoons = Webtoon.objects.all()
 
         # 태그 필터링
         if tag_ids:
