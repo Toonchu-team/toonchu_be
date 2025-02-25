@@ -22,7 +22,7 @@ def thumbnail_handler(request, existing_thumbnail=None):
         return JsonResponse({"error": str(e)}, status=400)
 
     if image:
-        #image: File
+        # image: File
         endpoint_url = ENV.get("IMAGE_BUCKET_ENDPOINT")
         access_key = ENV.get("NCP_ACCESS_KEY")
         secret_key = ENV.get("NCP_SECRET_KEY")

@@ -11,7 +11,7 @@ from drf_spectacular.utils import (
 )
 from rest_framework import status
 from rest_framework.generics import CreateAPIView, UpdateAPIView
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,7 +27,7 @@ from .utils.image_handler import thumbnail_handler
 
 class WebtoonCreateView(CreateAPIView):
     permission_classes = [AllowAny]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = WebtoonsSerializer
 
     @extend_schema(
@@ -42,11 +42,14 @@ class WebtoonCreateView(CreateAPIView):
     )
     def post(self, request, *args, **kwargs):
         data = {key: value for key, value in request.data.items()}
+        print(request.data["serial_day"])
+        if "serial_day" in data:
+            data["serial_day"] = json.loads(data["serial_day"])
         if "tags" in data:
             data["tags"] = json.loads(request.data["tags"])
 
-        thumbnail_url = thumbnail_handler(request)
-        data["thumbnail"] = thumbnail_url if request.FILES.get("thumbnail") else None
+        # thumbnail_url = thumbnail_handler(request)
+        # data["thumbnail"] = thumbnail_url if request.FILES.get("thumbnail") else None
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -54,7 +57,6 @@ class WebtoonCreateView(CreateAPIView):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
-
 
     @extend_schema(
         summary="웹툰 전체 api",
@@ -231,15 +233,17 @@ class ListView(APIView):
         webtoons = Webtoon.objects.all()
 
         # 요일 필터링
+        # if day:
+        #     webtoons = webtoons.filter(Q(serial_day__regex=r'\b{}\b'.format(day)))
         if day:
-            webtoons = webtoons.filter(Q(serial_day__regex=r'\b{}\b'.format(day)))
+            webtoons = webtoons.filter(serial_day__contains=f"{day}")
 
         # 상태 필터링
         if status == "new":
             webtoons = webtoons.filter(is_new=True)
         elif status == "completed":
             webtoons = webtoons.filter(is_completed=True)
-        else:
+        elif status == "all":
             webtoons = Webtoon.objects.all()
 
         # 태그 필터링
