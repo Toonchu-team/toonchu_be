@@ -231,7 +231,7 @@ class ListView(APIView):
         ],
     )
     def get(self, request):
-        day = request.query_params.get("day", "mon")
+        day = request.query_params.get("day", "")
         status = request.query_params.get("status", "")
         sort = self.request.query_params.get("sort", "popular")
         tag_ids = request.GET.getlist("id")
