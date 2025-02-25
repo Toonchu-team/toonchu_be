@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 
+import boto3
 from dotenv import dotenv_values
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -54,6 +55,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
+    "storages",
 ]
 
 INSTALLED_APPS = CUSTOM_APPS + SYSTEM_APPS + THIRD_PARTY_APPS  # + ['corsheaders']
@@ -229,3 +231,29 @@ GOOGLE_OAUTH2_SCOPE = ["email", "profile"]  # 새로운 설정 추가
 
 
 # FRONTEND_URL = "https://toonchu-fe.vercel.app/"
+
+# s3 = boto3.client('s3', aws_access_key_id=ENV.get("ACCESS_KEY"), aws_secret_access_key=ENV.get("SECRET_KEY"))
+# response = s3.list_buckets()
+# buckets = [bucket['NAME'] for bucket in response['Buckets']]
+#
+# # 파일 업로드
+# s3.upload_file('myfile-txt', 'my_bucket', 'myfile.txt')
+# # 파일 다운로드
+# s3.download_file('my_bucket', 'myfile.txt', 'myfile_downloaded.txt')
+# # 파일 삭제
+# s3.delete_file(Bucket='my_bucket', Key='myfile.txt')
+
+# s3 = boto3.client('s3', endpoint_url='https://your_endpoint_url', aws_access_key_id='YOUR_ACCESS_KEY', aws_secret_access_key='YOUR_SECRET_KEY')
+
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+AWS_ACCESS_KEY_ID = ENV.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = ENV.get("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = "toonchu"
+AWS_S3_REGION_NAME = "ap-northeast-2"  # 한국 리전
+AWS_S3_ENDPOINT_URL = "https://kr.object.ncloudstorage.com"
+AWS_S3_OBJECT_PARAMETERS = {
+    "CacheControl": "max-age=86400",
+}
+AWS_DEFAULT_ACL = "FULL_CONTROL"
+AWS_QUERYSTRING_AUTH = False  # 공개적으로 접근 가능

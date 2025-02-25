@@ -49,7 +49,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_updated = models.DateTimeField(null=True, blank=True)
     is_created = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
     withdraw_at = models.DateTimeField(null=True, blank=True)
+    is_hidden = models.BooleanField(default=False)
 
     def set_un_user_password(self):
         self.set_unusable_password()  # set_unusable_password사용 비밀번호 입력하여 로그인 하는 방식 제거 Oauth 이용한 소셜로그인 사용을 위해 추가
