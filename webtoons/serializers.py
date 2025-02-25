@@ -20,6 +20,7 @@ class WebtoonsSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, required=False)
     like_count = serializers.IntegerField(read_only=True)
     view_count = serializers.IntegerField(read_only=True)
+    serial_day = serializers.MultipleChoiceField(choices=Webtoon.SERIAL_DAY_CHOICES)
 
     class Meta:
         model = Webtoon
@@ -72,9 +73,18 @@ class WebtoonsSerializer(serializers.ModelSerializer):
     )
     def create(self, validated_data):
         tags = validated_data.pop("tags", [])
-        validated_data["like_count"] = 0
-        validated_data["view_count"] = 0
-        webtoon = Webtoon.objects.create(**validated_data)
+        webtoon = super().create(validated_data)
+        # serial_day = validated_data.pop("serial_day", [])
+        # if isinstance(serial_day, str):
+        #     serial_day = serial_day.split(",")
+        # elif not isinstance(serial_day, list):
+        #     serial_day = []
+        # validated_data["serial_day"] = ",".join(serial_day)
+        # data["serial_day"] = instance.serial_day.split(",") if instance.serial_day else []
+        #
+        # validated_data["like_count"] = 0
+        # validated_data["view_count"] = 0
+        # webtoon = Webtoon.objects.create(**validated_data)
 
         if tags:
             tag_names = [tag["tag_name"] for tag in tags]
