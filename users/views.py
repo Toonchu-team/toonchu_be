@@ -67,7 +67,7 @@ class SocialLoginView(GenericAPIView):
         ],
         responses={200: SocialLoginSerializer},
     )
-    def get(self, request, provider):
+    def post(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
 
         # URL 쿼리 파라미터에서 인가 코드 가져오기
