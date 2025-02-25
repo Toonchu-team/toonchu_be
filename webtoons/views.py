@@ -22,7 +22,7 @@ from .serializers import (
     WebtoonsSerializer,
     WebtoonTagSerializer,
 )
-from .utils.image_handler import thumbnail_handler
+from .utils.image_handler import upload_file_to_s3
 
 
 class WebtoonCreateView(CreateAPIView):
@@ -42,14 +42,19 @@ class WebtoonCreateView(CreateAPIView):
     )
     def post(self, request, *args, **kwargs):
         data = {key: value for key, value in request.data.items()}
-        print(request.data["serial_day"])
         if "serial_day" in data:
-            data["serial_day"] = json.loads(data["serial_day"])
+            data["serial_day"] = (
+                json.loads(data["serial_day"]) if data["serial_day"] else []
+            )
         if "tags" in data:
-            data["tags"] = json.loads(request.data["tags"])
+            data["tags"] = json.loads(request.data["tags"]) if data["tags"] else []
 
-        # thumbnail_url = thumbnail_handler(request)
-        # data["thumbnail"] = thumbnail_url if request.FILES.get("thumbnail") else None
+        try:
+            thumbnail_url = upload_file_to_s3(request)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        data["thumbnail"] = thumbnail_url
+
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
