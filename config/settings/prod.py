@@ -13,7 +13,7 @@ DEBUG = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "https://toonchu-fe.vercel.app",
-    "http://be.toonchu.kro.kr",
+    "www.toonchu.com",
 ]
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE"]
 CORS_ALLOW_HEADERS = ["*"]
