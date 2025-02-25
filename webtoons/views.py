@@ -43,9 +43,11 @@ class WebtoonCreateView(CreateAPIView):
     def post(self, request, *args, **kwargs):
         data = {key: value for key, value in request.data.items()}
         if "serial_day" in data:
-                data["serial_day"] = json.loads(data["serial_day"]) if data["serial_day"] else []
+            data["serial_day"] = (
+                json.loads(data["serial_day"]) if data["serial_day"] else []
+            )
         if "tags" in data:
-                data["tags"] = json.loads(request.data["tags"]) if data["tags"] else []
+            data["tags"] = json.loads(request.data["tags"]) if data["tags"] else []
 
         try:
             thumbnail_url = upload_file_to_s3(request)

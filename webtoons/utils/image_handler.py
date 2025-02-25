@@ -15,6 +15,7 @@ s3_client = boto3.client(
     endpoint_url=ENDPOINT_URL,
 )
 
+
 def upload_file_to_s3(request):
     if request.FILES.get("thumbnail"):
         file_obj = request.FILES["thumbnail"]
@@ -23,8 +24,10 @@ def upload_file_to_s3(request):
         file_name = f"webtoons/thumbnails/{uuid.uuid4()}_{file_obj.name}"
 
         try:
-        # 파일을 Object Storage에 업로드
-            s3_client.upload_fileobj(file_obj, BUCKET_NAME, file_name, ExtraArgs={"ACL": "public-read"})
+            # 파일을 Object Storage에 업로드
+            s3_client.upload_fileobj(
+                file_obj, BUCKET_NAME, file_name, ExtraArgs={"ACL": "public-read"}
+            )
 
             # 업로드된 파일의 URL 생성
             file_url = f"{ENDPOINT_URL}/{BUCKET_NAME}/{file_name}"
