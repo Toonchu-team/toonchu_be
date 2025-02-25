@@ -4,7 +4,8 @@ import uuid
 
 import boto3
 import requests
-from botocore.exceptions import ClientError
+
+# from botocore.exceptions import ClientError
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
@@ -20,8 +21,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+
+# from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+# from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from users.serializers import (
@@ -55,15 +57,21 @@ class SocialLoginView(GenericAPIView):
                 location=OpenApiParameter.PATH,
                 required=True,
             ),
+            OpenApiParameter(
+                name="code",
+                type=OpenApiTypes.STR,
+                description="인가 코드",
+                location=OpenApiParameter.QUERY,
+                required=True,
+            ),
         ],
-        request=SocialLoginSerializer,
         responses={200: SocialLoginSerializer},
     )
-    def post(self, request, provider):
+    def get(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
 
-        # 프론트에서 받은 인가 코드
-        auth_code = request.data.get("code")
+        # URL 쿼리 파라미터에서 인가 코드 가져오기
+        auth_code = request.GET.get("code")
         if not auth_code:
             return Response(
                 {"error": "Authorization code is required"},
@@ -264,6 +272,7 @@ class SocialLoginView(GenericAPIView):
                         "nick_name": data.get("nick_name"),
                         "profile_image": data.get("profile_image"),
                     }
+
             elif provider == "google":
                 url = "https://www.googleapis.com/oauth2/v3/userinfo"
                 headers = {"Authorization": f"Bearer {access_token}"}
