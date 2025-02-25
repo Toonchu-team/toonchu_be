@@ -38,9 +38,7 @@ class Webtoon(CommonModel):
     ]
     title = models.CharField(max_length=100, null=False, blank=False)
     author = models.CharField(max_length=50, null=False, blank=False)
-    thumbnail = models.ImageField(
-        upload_to="webtoons/thumbnails", null=False, blank=False
-    )
+    thumbnail = models.URLField(null=False, blank=False)
     age_rating = models.CharField(max_length=10)
     publication_day = models.DateField(null=False, blank=False)
     is_completed = models.BooleanField(default=False)
@@ -50,7 +48,7 @@ class Webtoon(CommonModel):
         max_length=20, choices=PLATFORM_CHOICES, null=False, blank=False
     )
     serialization_cycle = models.CharField(max_length=20, choices=CYCLE_CHOICES)
-    serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES)
+    serial_day = MultiSelectField(choices=SERIAL_DAY_CHOICES, null=True, blank=True)
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
     is_approved = models.CharField(

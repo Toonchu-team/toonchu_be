@@ -1,53 +1,34 @@
 import uuid
 
 import boto3
-from django.core.files import File
-from django.http import JsonResponse
-from dotenv import dotenv_values
+from django.conf import settings
 
-ENV = dotenv_values(".env")
+ACCESS_KEY = settings.NCP_ACCESS_KEY
+SECRET_KEY = settings.NCP_SECRET_KEY
+ENDPOINT_URL = settings.NCP_OBJECT_STORAGE_ENDPOINT
+BUCKET_NAME = settings.BUCKET_NAME
 
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY,
+    endpoint_url=ENDPOINT_URL,
+)
 
-def thumbnail_handler(request, existing_thumbnail=None):
-    thumbnail_url = existing_thumbnail if existing_thumbnail else None
+def upload_file_to_s3(request):
+    if request.FILES.get("thumbnail"):
+        file_obj = request.FILES["thumbnail"]
 
-    try:
-        if request.FILES.get("thumbnail"):
-            folder_name = "webtoon/thumbnails"
-            image = request.FILES.get("thumbnail")
-        else:
-            print("FILES.get ?, neither thumbnail nor file")
-    except Exception as e:
-        print(e)
-        return JsonResponse({"error": str(e)}, status=400)
-
-    if image:
-        # image: File
-        endpoint_url = ENV.get("IMAGE_BUCKET_ENDPOINT")
-        access_key = ENV.get("NCP_ACCESS_KEY")
-        secret_key = ENV.get("NCP_SECRET_KEY")
-        bucket_name = "toonchu"
-
-        s3 = boto3.client(
-            "s3",
-            endpoint_url=endpoint_url,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-        )
-        image_id = str(uuid.uuid4())
-
-        file_extension = image.name.split(".")[-1]
-        image_name = f"{image_id}.{file_extension}"
-        s3_key = f"{folder_name}/{image_name}"
+        # 파일명 중복 방지를 위해 UUID 추가
+        file_name = f"webtoons/thumbnails/{uuid.uuid4()}_{file_obj.name}"
 
         try:
-            s3.upload_fileobj(image.file, bucket_name, s3_key)
-            s3.put_object_acl(ACL="public-read", Bucket=bucket_name, Key=s3_key)
+        # 파일을 Object Storage에 업로드
+            s3_client.upload_fileobj(file_obj, BUCKET_NAME, file_name, ExtraArgs={"ACL": "public-read"})
+
+            # 업로드된 파일의 URL 생성
+            file_url = f"{ENDPOINT_URL}/{BUCKET_NAME}/{file_name}"
         except Exception as e:
-            print(e)
-            return JsonResponse({"error": str(e)}, status=400)
-
-        thumbnail_url = f"{endpoint_url}/{bucket_name}/{s3_key}"
-        print("image_url out:", thumbnail_url)
-
-    return thumbnail_url
+            raise ValueError(str(e))
+        return file_url
+    raise ValueError("썸네일 이미지가 없습니다")
