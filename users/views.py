@@ -57,21 +57,15 @@ class SocialLoginView(GenericAPIView):
                 location=OpenApiParameter.PATH,
                 required=True,
             ),
-            OpenApiParameter(
-                name="code",
-                type=OpenApiTypes.STR,
-                description="인가 코드",
-                location=OpenApiParameter.QUERY,
-                required=True,
-            ),
         ],
+        request=SocialLoginSerializer,
         responses={200: SocialLoginSerializer},
     )
     def post(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
 
-        # URL 쿼리 파라미터에서 인가 코드 가져오기
-        auth_code = request.GET.get("code")
+        # 프론트에서 받은 인가 코드
+        auth_code = request.data.get("code")
         if not auth_code:
             return Response(
                 {"error": "Authorization code is required"},
