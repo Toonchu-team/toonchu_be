@@ -16,6 +16,8 @@ class WebtoonTagSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+
+
 class WebtoonsSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, required=False)
     like_count = serializers.IntegerField(read_only=True)
@@ -43,7 +45,9 @@ class WebtoonsSerializer(serializers.ModelSerializer):
             "view_count",
             "is_approved",
             "tags",
+            "user",
         ]
+        read_only_fields = ["like_count", "view_count", "is_approved","user"]
 
     @extend_schema_serializer(
         examples=[
@@ -151,3 +155,8 @@ class WebtoonsSerializer(serializers.ModelSerializer):
         tags = [webtoon_tag.tag for webtoon_tag in instance.webtoon_tags.all()]
         data["tags"] = TagSerializer(tags, many=True).data
         return data
+
+class UserWebtoonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Webtoon
+        exclude = ("user",)

@@ -54,7 +54,7 @@ class Webtoon(CommonModel):
     is_approved = models.CharField(
         max_length=20, choices=APPROVAL_STATUS, default="pending"
     )
-    # user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
 
 class Tag(models.Model):

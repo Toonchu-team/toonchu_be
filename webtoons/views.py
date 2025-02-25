@@ -9,7 +9,7 @@ from drf_spectacular.utils import (
     OpenApiTypes,
     extend_schema,
 )
-from rest_framework import status
+from rest_framework import status, generics, permissions
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
@@ -20,13 +20,13 @@ from .models import Tag, Webtoon
 from .serializers import (
     TagSerializer,
     WebtoonsSerializer,
-    WebtoonTagSerializer,
+    WebtoonTagSerializer, UserWebtoonSerializer,
 )
 from .utils.image_handler import upload_file_to_s3
 
 
 class WebtoonCreateView(CreateAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = WebtoonsSerializer
 
@@ -62,6 +62,8 @@ class WebtoonCreateView(CreateAPIView):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     @extend_schema(
         summary="웹툰 전체 api",
@@ -321,3 +323,11 @@ class WebtoonApprovalView(UpdateAPIView):
         webtoon = self.get_object()
         serializer = WebtoonsSerializer(webtoon)
         return Response(serializer.data)
+
+class UserWebtoonListView(generics.ListAPIView):
+    serializer_class = UserWebtoonSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Webtoon.objects.filter(user=self.request.user)
+
