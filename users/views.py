@@ -4,8 +4,7 @@ import uuid
 
 import boto3
 import requests
-
-# from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
@@ -21,9 +20,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-# from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-# from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from users.serializers import (
@@ -66,6 +64,7 @@ class SocialLoginView(GenericAPIView):
 
         # 프론트에서 받은 인가 코드
         auth_code = request.data.get("code")
+        logger.info(f"{auth_code} code 받기 성공")
         if not auth_code:
             return Response(
                 {"error": "Authorization code is required"},
@@ -266,7 +265,6 @@ class SocialLoginView(GenericAPIView):
                         "nick_name": data.get("nick_name"),
                         "profile_image": data.get("profile_image"),
                     }
-
             elif provider == "google":
                 url = "https://www.googleapis.com/oauth2/v3/userinfo"
                 headers = {"Authorization": f"Bearer {access_token}"}

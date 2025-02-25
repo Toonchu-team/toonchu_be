@@ -232,6 +232,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
+    "https://toonchu-fe.vercel.app/",
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
