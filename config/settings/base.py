@@ -10,11 +10,14 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import sys
 from datetime import timedelta
 from pathlib import Path
 
-import boto3
+# import boto3
 from dotenv import dotenv_values
+
+# from storages.backends import s3
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -31,7 +34,13 @@ SECRET_KEY = ENV.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "https://toonchu-fe.vercel.app/",
+    "http://be.toonchu.kro.kr/",
+    ENV.get("DB_HOST"),
+]
 
 # Application definition
 CUSTOM_APPS = [
@@ -161,7 +170,7 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files
-MEDIA_URL = "media/"
+# MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
@@ -177,7 +186,7 @@ SITE_ID = 1
 LOGIN_REDIRECT_URL = "/"
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -223,6 +232,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
+    "https://toonchu-fe.vercel.app",
 ]
 CORS_ALLOW_CREDENTIALS = True  # 인증정보 포함 허용
 
@@ -244,16 +254,80 @@ GOOGLE_OAUTH2_SCOPE = ["email", "profile"]  # 새로운 설정 추가
 # s3.delete_file(Bucket='my_bucket', Key='myfile.txt')
 
 # s3 = boto3.client('s3', endpoint_url='https://your_endpoint_url', aws_access_key_id='YOUR_ACCESS_KEY', aws_secret_access_key='YOUR_SECRET_KEY')
-
+#
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 
-AWS_ACCESS_KEY_ID = ENV.get("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = ENV.get("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = "toonchu"
-AWS_S3_REGION_NAME = "ap-northeast-2"  # 한국 리전
-AWS_S3_ENDPOINT_URL = "https://kr.object.ncloudstorage.com"
-AWS_S3_OBJECT_PARAMETERS = {
-    "CacheControl": "max-age=86400",
+NCP_ACCESS_KEY_ID = ENV.get("NCP_ACCESS_KEY_ID")
+NCP_SECRET_ACCESS_KEY = ENV.get("NCP_SECRET_ACCESS_KEY")
+NCP_STORAGE_BUCKET_NAME = ENV.get("NCP_STORAGE_BUCKET_NAME")
+NCP_S3_ENDPOINT_URL = ENV.get("NCP_S3_ENDPOINT_URL")
+# AWS_QUERYSTRING_AUTH = False  # URL에 인증 정보를 포함하지 않음
+# AWS_DEFAULT_ACL = None
+# AWS_S3_FILE_OVERWRITE = False
+# AWS_LOCATION = "users/profile"  # 업로드될 디렉토리 지정 (예: 프로필 이미지용)
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
+            "datefmt": "%d/%b/%Y %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "console.info": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+        "console.error": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+        "logger.info": {
+            "level": "INFO",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "logger.warning": {
+            "level": "WARNING",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "logger.error": {
+            "level": "ERROR",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+    },
 }
-AWS_DEFAULT_ACL = "FULL_CONTROL"
-AWS_QUERYSTRING_AUTH = False  # 공개적으로 접근 가능
+
+NCP_ACCESS_KEY = ENV.get("NCP_ACCESS_KEY")
+NCP_SECRET_KEY = ENV.get("NCP_SECRET_KEY")
+NCP_OBJECT_STORAGE_ENDPOINT = ENV.get("IMAGE_BUCKET_ENDPOINT")
+BUCKET_NAME = ENV.get("BUCKET_NAME")

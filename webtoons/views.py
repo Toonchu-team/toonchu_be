@@ -3,31 +3,31 @@ import os
 
 import requests
 from django.db.models import Count, Q
+from django.http import JsonResponse, QueryDict
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
     extend_schema,
 )
 from rest_framework import status
-from rest_framework.generics import CreateAPIView
-from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.generics import CreateAPIView, UpdateAPIView
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Tag, Webtoon
 from .serializers import (
     TagSerializer,
-    UserWebtoonSerializer,
-    WebtoonGetSerializer,
     WebtoonsSerializer,
     WebtoonTagSerializer,
 )
+from .utils.image_handler import upload_file_to_s3
 
 
 class WebtoonCreateView(CreateAPIView):
     permission_classes = [AllowAny]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = WebtoonsSerializer
 
     @extend_schema(
@@ -42,7 +42,19 @@ class WebtoonCreateView(CreateAPIView):
     )
     def post(self, request, *args, **kwargs):
         data = {key: value for key, value in request.data.items()}
-        data["tags"] = json.loads(request.data["tags"])
+        if "serial_day" in data:
+            data["serial_day"] = (
+                json.loads(data["serial_day"]) if data["serial_day"] else []
+            )
+        if "tags" in data:
+            data["tags"] = json.loads(request.data["tags"]) if data["tags"] else []
+
+        try:
+            thumbnail_url = upload_file_to_s3(request)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        data["thumbnail"] = thumbnail_url
+
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -50,6 +62,16 @@ class WebtoonCreateView(CreateAPIView):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
+
+    @extend_schema(
+        summary="웹툰 전체 api",
+        description="웹툰 전체 list 불러오는 api",
+        tags=["Webtoons"],
+    )
+    def get(self, request):
+        webtoons = Webtoon.objects.all()
+        serializer = WebtoonsSerializer(webtoons, many=True)
+        return Response(serializer.data)
 
 
 class SearchByIntegrateView(APIView):
@@ -61,7 +83,7 @@ class SearchByIntegrateView(APIView):
                 name="provider",
                 description="웹툰 플랫폼",
                 type=str,
-                enum=["naver", "kakaowebtoon", "kakaopage", "others"],
+                enum=["all", "naver", "kakaowebtoon", "kakaopage", "postype", "others"],
             ),
             OpenApiParameter(name="tag", description="웹툰 태그", type=str),
             OpenApiParameter(name="term", description="검색어", type=str),
@@ -82,9 +104,9 @@ class SearchByIntegrateView(APIView):
 
         queryset = Webtoon.objects.all()
 
-        if provider:
+        if provider and provider != "all":
             queryset = queryset.filter(
-                platform=provider
+                platform__iexact=provider
             )  # platform__iexact 사용 유무(영어 대소문자관련 일치여부 확인용)
 
         if tags:
@@ -173,12 +195,13 @@ class SearchByTagView(APIView):
         return Response(serializer.data)
 
 
-class ListByDayView(APIView):
+class ListView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = WebtoonsSerializer
 
     @extend_schema(
-        summary="요일별/연재유무별 웹툰 리스트",
-        description="요일별, 신작, 연재유무별 로 웹툰 리스트 표현",
+        summary="웹툰 정렬 리스트 Get",
+        description="인기순, 조회순, 등록순, 연재일순(최신순)/요일발/신작유무/완결유무별 리스트 정렬 api",
         tags=["Webtoons list"],
         parameters=[
             OpenApiParameter(
@@ -193,40 +216,6 @@ class ListByDayView(APIView):
                 type=str,
                 enum=["all", "new", "completed"],
             ),
-        ],
-        request=WebtoonsSerializer,
-        responses={
-            200: WebtoonsSerializer(many=True),
-            400: OpenApiTypes.OBJECT,
-        },
-    )
-    def get(self, request):
-        day = request.query_params.get("day", "")
-        status = request.query_params.get("status")
-        queryset = Webtoon.objects.all()
-
-        if day:
-            queryset = queryset.filter(serial_day__iexact=day)
-
-            if status == "new":
-                queryset = queryset.filter(is_new=True)
-
-            elif status == "completed":
-                queryset = queryset.filter(is_completed=True)
-
-        serializer = WebtoonsSerializer(queryset, many=True)
-        return Response(serializer.data)
-
-
-class ListView(APIView):
-    permission_classes = [AllowAny]
-    serializer_class = WebtoonsSerializer
-
-    @extend_schema(
-        summary="웹툰 정렬 리스트 Get",
-        description="인기순, 조회순, 등록순, 연재일순(최신순) 정렬 api",
-        tags=["Webtoons list"],
-        parameters=[
             OpenApiParameter(
                 name="sort",
                 description="정렬할 순서 이름",
@@ -242,22 +231,28 @@ class ListView(APIView):
         ],
     )
     def get(self, request):
-        # 순서 정렬
+        day = request.query_params.get("day", "")
+        status = request.query_params.get("status", "")
         sort = self.request.query_params.get("sort", "popular")
-        sort_mapping = {
-            "popular": "-like_count",
-            "view": "-view_count",
-            "created": "-created_at",
-            "latest": "-publication_day",
-        }
-        ordering = sort_mapping.get(sort, "-like_count")
-        tag_ids = request.GET.getlist("tags.id")
-
+        tag_ids = request.GET.getlist("id")
         webtoons = Webtoon.objects.all()
 
+        # 요일 필터링
+        # if day:
+        #     webtoons = webtoons.filter(Q(serial_day__regex=r'\b{}\b'.format(day)))
+        if day:
+            webtoons = webtoons.filter(serial_day__contains=f"{day}")
+
+        # 상태 필터링
+        if status == "new":
+            webtoons = webtoons.filter(is_new=True)
+        elif status == "completed":
+            webtoons = webtoons.filter(is_completed=True)
+
+        # 태그 필터링
         if tag_ids:
             webtoons = (
-                Webtoon.objects.filter(tags__id__in=tag_ids)
+                Webtoon.objects.filter(webtoon_tags__tag__id__in=tag_ids)
                 .annotate(
                     matching_tags=Count(
                         "webtoon_tags", filter=Q(webtoon_tags__tag__id__in=tag_ids)
@@ -266,7 +261,63 @@ class ListView(APIView):
                 .filter(matching_tags=len(tag_ids))
             )
 
+        sort_mapping = {
+            "popular": "-like_count",
+            "view": "-view_count",
+            "created": "-created_at",
+            "latest": "-publication_day",
+        }
+        ordering = sort_mapping.get(sort, "-like_count")
+
         webtoons = webtoons.order_by(ordering)
 
         serializer = WebtoonsSerializer(webtoons, many=True)
+        return Response(serializer.data)
+
+
+class WebtoonApprovalView(UpdateAPIView):
+    permission_classes = [AllowAny]
+    queryset = Webtoon.objects.all()
+    serializer_class = WebtoonsSerializer
+
+    @extend_schema(
+        summary="웹툰 등록 승인/거절 api",
+        description="웹툰의 승인 상태를 변경하는 api",
+        tags=["Webtoon approval"],
+        parameters=[
+            OpenApiParameter(
+                name="action",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="'approve' 또는 'reject'",
+            )
+        ],
+        request=OpenApiTypes.NONE,
+        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
+    )
+    def patch(self, request, pk):
+        webtoon = self.get_object()
+        action = request.data.get("action")
+
+        action_mapping = {
+            "approve": {"status": "approved", "message": "웹툰 등록이 완료됐다냥!"},
+            "reject": {
+                "status": "rejected",
+                "message": "웹툰 등록 신청이 거절 됐다냥..",
+            },
+        }
+        webtoon.is_approved = action_mapping[action]["status"]
+        webtoon.save(update_fields=["is_approved"])
+
+        return Response(
+            {"message": action_mapping[action]["message"]}, status=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="웹툰 승인 확인용 GET API",
+        tags=["Webtoon approval"],
+    )
+    def get(self, request, pk):
+        webtoon = self.get_object()
+        serializer = WebtoonsSerializer(webtoon)
         return Response(serializer.data)

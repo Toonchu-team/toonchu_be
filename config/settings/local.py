@@ -1,6 +1,9 @@
+import os
+
+import boto3
+
 from .base import *
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = [
@@ -13,63 +16,32 @@ ALLOWED_HOSTS = [
 
 CORS_ALLOW_ALL_ORIGINS = True  # 개발 환경에서만 사용
 
+# 테스트 환경에서는 실행하지 않음
+if ENV.get("DJANGO_ENV") != "test":
+    bucket_name = ENV.get("NCP_STORAGE_BUCKET_NAME")
+    if bucket_name:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url="https://kr.object.ncloudstorage.com",
+            aws_access_key_id=ENV.get("NCP_ACCESS_KEY_ID"),
+            aws_secret_access_key=ENV.get("NCP_SECRET_ACCESS_KEY"),
+        )
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": True,
-    "formatters": {
-        "verbose": {
-            "format": "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
-            "datefmt": "%d/%b/%Y %H:%M:%S",
-        },
-    },
-    "handlers": {
-        "console": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": True,
-        },
-        "django.request": {
-            "handlers": ["console"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-        "django.db.backends": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": True,
-        },
-        "console.info": {
-            "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": True,
-        },
-        "console.error": {
-            "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": True,
-        },
-        "logger.info": {
-            "level": "INFO",
-            "handlers": ["console"],
-            "propagate": True,
-        },
-        "logger.warning": {
-            "level": "WARNING",
-            "handlers": ["console"],
-            "propagate": False,
-        },
-        "logger.error": {
-            "level": "ERROR",
-            "handlers": ["console"],
-            "propagate": True,
-        },
-    },
-}
+        cors_configuration = {
+            "CORSRules": [
+                {
+                    "AllowedOrigins": ["*"],
+                    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+                    "AllowedHeaders": ["*"],
+                    "ExposeHeaders": [],
+                    "MaxAgeSeconds": 3000,
+                }
+            ]
+        }
+
+        response = s3.put_bucket_cors(
+            Bucket=bucket_name, CORSConfiguration=cors_configuration
+        )
+        print("CORS 설정 완료:", response)
+    else:
+        print("NCP_STORAGE_BUCKET_NAME 환경변수가 설정되지 않았습니다.")

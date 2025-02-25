@@ -1,31 +1,34 @@
 import datetime
 import logging
-import os
+import uuid
 
 import boto3
 import requests
+from botocore.exceptions import ClientError
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.tokens import default_token_generator
-from django.db import IntegrityError, connection
-from django.http import HttpResponseNotAllowed
+from django.core.files.uploadedfile import InMemoryUploadedFile, UploadedFile
+from django.db import IntegrityError  # connection 제거
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, serializers, status
+from rest_framework.generics import GenericAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from users.serializers import (
     LogoutSerializer,
     NicknameCheckSerializer,
+    SocialLoginSerializer,
+    TokenRefreshSerializer,
     UserProfileSerializer,
 )
 
@@ -33,17 +36,35 @@ from .utils import RendomNickName
 
 User = get_user_model()
 
+# Initialize logger here
 logger = logging.getLogger(__name__)
 
 
-class SocialLoginView(APIView):
+class SocialLoginView(GenericAPIView):
     permission_classes = (permissions.AllowAny,)
+    serializer_class = SocialLoginSerializer
 
+    @extend_schema(
+        summary="소셜 로그인",
+        description="Provider(kakao, naver, google)를 통해 소셜 로그인을 진행합니다.",
+        parameters=[
+            OpenApiParameter(
+                name="provider",
+                type=OpenApiTypes.STR,
+                description="소셜 로그인 제공자 (kakao, naver, google)",
+                location=OpenApiParameter.PATH,
+                required=True,
+            ),
+        ],
+        request=SocialLoginSerializer,
+        responses={200: SocialLoginSerializer},
+    )
     def post(self, request, provider):
         logger.debug(f"소셜로그인 요청 시 로그: {provider}")
 
         # 프론트에서 받은 인가 코드
         auth_code = request.data.get("code")
+        logger.info(f"{auth_code} code 받기 성공")
         if not auth_code:
             return Response(
                 {"error": "Authorization code is required"},
@@ -68,12 +89,14 @@ class SocialLoginView(APIView):
                 {"error": "Invalid social token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
         logger.debug(f"액세스토큰 이용 사용자 정보: {user_info}")
 
         # 닉네임이 없는 경우 랜덤 닉네임 생성
         nick_name = user_info.get("nick_name")
+        is_hidden = False
         if not nick_name:  # 닉네임이 None 또는 빈 값이면
-            nick_name = RendomNickName()  # 랜덤 닉네임 생성
+            nick_name, is_hidden = RendomNickName()  # 랜덤 닉네임과 히든 여부 반환
 
         # 사용자 정보로 DB 조회 및 저장
         try:
@@ -83,8 +106,15 @@ class SocialLoginView(APIView):
                 defaults={
                     "nick_name": nick_name,  # 닉네임 저장
                     "profile_img": user_info.get("profile_image"),
+                    "is_hidden": is_hidden,  # 히든 여부 저장
                 },
             )
+            #
+            # # 닉네임 변경 시 기존 닉네임이 히든이면 is_hidden을 False로 변경
+            # if not created and user.is_hidden:
+            #     user.is_hidden = False
+            #     user.save()
+
         except IntegrityError as e:
             logger.error(f"IntegrityError occurred: {str(e)}")
             return Response(
@@ -92,7 +122,7 @@ class SocialLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        #  로그인 시 user_active가 False or 0 이면 로그인 불가 처리
+        #  로그인 시 user.is_active가 False or 0 이면 로그인 불가 처리
         if not user.is_active:
             return Response(
                 {"error": "Your account is inactive. Please contact support."},
@@ -113,6 +143,7 @@ class SocialLoginView(APIView):
                     "email": user.email,
                     "profile_image": user.profile_img.url if user.profile_img else "",
                     "provider": user.provider,
+                    "is_hidden": user.is_hidden,
                 },
             },
             status=status.HTTP_200_OK,
@@ -256,106 +287,31 @@ class SocialLoginView(APIView):
         return None
 
 
-class TokenRefreshView(APIView):
+class TokenRefreshView(GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = TokenRefreshSerializer
 
+    @extend_schema(
+        summary="Access Token 갱신",
+        description="Refresh Token을 사용하여 새로운 Access Token을 갱신합니다.",
+        responses={
+            200: {"type": "object", "properties": {"access": {"type": "string"}}},
+            400: {"type": "object", "properties": {"error": {"type": "string"}}},
+            401: {"type": "object", "properties": {"error": {"type": "string"}}},
+        },
+    )
     def post(self, request):
-        auth_header = request.headers.get("Authorization")
-
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return Response(
-                {"error": "Bearer token is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        refresh_token = auth_header.split(" ")[1]
-
+        serializer = self.get_serializer(data=request.data)
         try:
-            # RefreshToken 객체 생성 및 토큰 검증
-            token = RefreshToken(refresh_token)
-
-            # 토큰에서 사용자 ID 추출
-            user_id = token.payload.get("user_id")
-
-            if not user_id:
-                return Response(
-                    {"error": "Invalid refresh token"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # 사용자 조회
-            try:
-                user = User.objects.get(id=user_id)
-            except User.DoesNotExist:
-                return Response(
-                    {"error": "User not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            # 저장된 refresh token과 비교
-            if user.refresh_token != refresh_token:
-                return Response(
-                    {"error": "Refresh token does not match"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # 새로운 access token 생성
-            new_access_token = str(token.access_token)
-
-            # 리프레시 토큰 재사용 방지 (선택적)
-            user.refresh_token = str(token)  # 새 리프레시 토큰 저장
-            user.save()
-
-            return Response(
-                {"access_token": new_access_token}, status=status.HTTP_200_OK
-            )
-
-        except InvalidToken:
-            return Response(
-                {"error": "Invalid refresh token"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except TokenError:
-            return Response(
-                {"error": "Expired refresh token"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            serializer.is_valid()
+            return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        except serializers.ValidationError as e:
+            return Response(e.detail, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
             return Response(
-                {"error": str(e)},
+                {"error": "An unexpected error occurred."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-
-# class LogoutView(APIView):
-#     authentication_classes = [JWTAuthentication]
-#     permission_classes = [IsAuthenticated]
-#
-#     def post(self, request):
-#         print(request.data)
-#         try:
-#             refresh_token = request.data.get("refresh_token")
-#
-#             if refresh_token:
-#                 serializer = LogoutSerializer(data=request.data)
-#                 if serializer.is_valid():
-#                     token = serializer.data.get("refresh_token")
-#                     token.blacklist()
-#                     logger.debug(f"Token blacklist: {token}")
-#
-#                 return Response(
-#                     {"message": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-#                 )
-#             else:
-#                 return Response(
-#                     {"error": "리프레시 토큰이 제공되지 않았습니다."},
-#                     status=status.HTTP_400_BAD_REQUEST,
-#                 )
-#         except Exception as e:
-#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-CustomUser = get_user_model()
 
 
 class LogoutView(APIView):
@@ -363,6 +319,16 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
     serializer_class = LogoutSerializer
 
+    @extend_schema(
+        summary="로그아웃",
+        description="Refresh Token을 블랙리스트에 추가하여 로그아웃 처리합니다.",
+        request=LogoutSerializer,
+        responses={
+            200: {"type": "object", "properties": {"message": {"type": "string"}}},
+            400: {"type": "object", "properties": {"error": {"type": "string"}}},
+            403: {"type": "object", "properties": {"error": {"type": "string"}}},
+        },
+    )
     def post(self, request):
         # raise Exception("1123")
         refresh_token = request.data.get("refresh_token")
@@ -398,93 +364,96 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
-class UserProfileView(generics.GenericAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+def upload_image_to_ncp(file, user_uuid):
+    bucket_name = settings.NCP_BUCKET_NAME
+    region_name = "kr-standard"
+    endpoint_url = "https://kr.object.ncloudstorage.com"
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=settings.NCP_ACCESS_KEY,
+        aws_secret_access_key=settings.NCP_SECRET_KEY,
+        region_name=region_name,
+    )
+
+    folder_path = f"users/profile/{user_uuid}/"
+    file_key = folder_path + file.name
+
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=file_key,
+        Body=file.read(),
+        ContentType=file.content_type,
+    )
+
+    return f"{endpoint_url}/{bucket_name}/{file_key}"
+
+
+class UserProfileUpdateView(APIView):
     serializer_class = UserProfileSerializer
-    parser_classes = (MultiPartParser, FormParser)
-    queryset = User.objects.all()
+    permission_classes = [IsAuthenticated]
 
     def get_object(self):
         return self.request.user
 
+    def get_serializer(self, *args, **kwargs):
+        return self.serializer_class(*args, **kwargs)
+
     @extend_schema(
         summary="사용자 프로필 조회",
-        description="인증된 사용자의 프로필 정보를 조회합니다.",
+        description="현재 로그인한 사용자의 프로필 정보를 조회합니다.",
         responses={200: UserProfileSerializer},
-        tags=["User Profile"],
     )
-    def get(self, request, *args, **kwargs):  # GET 메서드 처리
-        serializer = self.get_serializer(self.get_object())
-        data = serializer.data
-        return Response(
-            {
-                "message": f"{data['nick_name']}의 정보가 정상적으로 반환되었습니다",
-                "user": data,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    @extend_schema(
-        summary="사용자 프로필 수정",
-        description="인증된 사용자의 닉네임과 프로필 이미지를 수정합니다.",
-        request=UserProfileSerializer,
-        responses={200: UserProfileSerializer},
-        tags=["User Profile"],
-        parameters=[
-            OpenApiParameter(
-                name="nick_name",
-                type=OpenApiTypes.STR,
-                location=OpenApiParameter.QUERY,
-                description="수정할 닉네임",
-                required=False,
-            ),
-            OpenApiParameter(
-                name="profile_img",
-                type=OpenApiTypes.BINARY,
-                location=OpenApiParameter.QUERY,
-                description="수정할 프로필 이미지",
-                required=False,
-            ),
-        ],
-    )
-    def patch(self, request, *args, **kwargs):
-
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        user_data = serializer.data
-        return Response(
-            {"message": "회원 정보가 수정되었습니다.", "user": user_data},
-            status=status.HTTP_200_OK,
-        )
+    def get(self, request, *args, **kwargs):
+        user = self.get_object()
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def perform_update(self, serializer):
-        user = self.request.user
+        user = self.get_object()
+        logger.info(f"User ID: {user.id}, 유저정보 가져오기 성공")
+
+        # Nickname 수정
+        nick_name = self.request.data.get("nick_name")
+        if nick_name:
+            user.nick_name = nick_name
+            # user.is_hidden = False    프론트 요청으로 주석 처리
+
+        # 프로필 이미지 수정
         profile_img = self.request.FILES.get("profile_img")
         if profile_img:
-            # NCP Object Storage에 파일 업로드
-            s3 = boto3.client(
-                "s3",
-                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            )
+            # NCP에 업로드하고 URL을 반환
+            uploaded_url = upload_image_to_ncp(profile_img, str(user.uuid))
+            user.profile_img = uploaded_url
+            logger.info(f"Profile image uploaded to NCP: {uploaded_url}")
 
-            file_name = f"users/profile/{user.id}_{profile_img.name}"  # ncp -> 버킷 -> users폴더에 이미지 저장
-            s3.upload_fileobj(
-                profile_img,
-                settings.AWS_STORAGE_BUCKET_NAME,
-                file_name,
-                ExtraArgs={"ACL": "FULL_CONTROL"},
-            )
-
-            # 프로필 이미지 URL 설정
-            user.profile_img = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
-
+        # 프로필 업데이트
         user.is_updated = timezone.now()
         user.save()
+        logger.info(
+            f"USER:{user.nick_name}, {user.profile_img} 프로필 이미지 저장 성공"
+        )
+
         serializer.save()
+
+    @extend_schema(
+        summary="사용자 프로필 업데이트 (PATCH)",
+        description="현재 로그인한 사용자의 프로필 정보를 업데이트합니다. 닉네임과 프로필 이미지를 수정할 수 있습니다.",
+        request=UserProfileSerializer,
+        responses={200: UserProfileSerializer},
+    )
+    def patch(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserWithdrawView(generics.GenericAPIView):
