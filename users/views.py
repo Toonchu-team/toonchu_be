@@ -24,6 +24,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
+from ncp.views import upload_image_to_ncp
 from users.serializers import (
     LogoutSerializer,
     NicknameCheckSerializer,
@@ -364,35 +365,10 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
-def upload_image_to_ncp(file, user_uuid):
-    bucket_name = settings.NCP_BUCKET_NAME
-    region_name = "kr-standard"
-    endpoint_url = "https://kr.object.ncloudstorage.com"
-
-    s3_client = boto3.client(
-        "s3",
-        endpoint_url=endpoint_url,
-        aws_access_key_id=settings.NCP_ACCESS_KEY,
-        aws_secret_access_key=settings.NCP_SECRET_KEY,
-        region_name=region_name,
-    )
-
-    folder_path = f"users/profile/{user_uuid}/"
-    file_key = folder_path + file.name
-
-    s3_client.put_object(
-        Bucket=bucket_name,
-        Key=file_key,
-        Body=file.read(),
-        ContentType=file.content_type,
-    )
-
-    return f"{endpoint_url}/{bucket_name}/{file_key}"
-
-
 class UserProfileUpdateView(APIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]  # Add parser classes
 
     def get_object(self):
         return self.request.user
@@ -410,33 +386,6 @@ class UserProfileUpdateView(APIView):
         serializer = self.get_serializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def perform_update(self, serializer):
-        user = self.get_object()
-        logger.info(f"User ID: {user.id}, 유저정보 가져오기 성공")
-
-        # Nickname 수정
-        nick_name = self.request.data.get("nick_name")
-        if nick_name:
-            user.nick_name = nick_name
-            # user.is_hidden = False    프론트 요청으로 주석 처리
-
-        # 프로필 이미지 수정
-        profile_img = self.request.FILES.get("profile_img")
-        if profile_img:
-            # NCP에 업로드하고 URL을 반환
-            uploaded_url = upload_image_to_ncp(profile_img, str(user.uuid))
-            user.profile_img = uploaded_url
-            logger.info(f"Profile image uploaded to NCP: {uploaded_url}")
-
-        # 프로필 업데이트
-        user.is_updated = timezone.now()
-        user.save()
-        logger.info(
-            f"USER:{user.nick_name}, {user.profile_img} 프로필 이미지 저장 성공"
-        )
-
-        serializer.save()
-
     @extend_schema(
         summary="사용자 프로필 업데이트 (PATCH)",
         description="현재 로그인한 사용자의 프로필 정보를 업데이트합니다. 닉네임과 프로필 이미지를 수정할 수 있습니다.",
@@ -444,16 +393,39 @@ class UserProfileUpdateView(APIView):
         responses={200: UserProfileSerializer},
     )
     def patch(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
+        user = self.get_object()
+        serializer = self.get_serializer(
+            user, data=request.data, partial=True
+        )  # partial update
 
-        return Response(
-            serializer.data,
-            status=status.HTTP_200_OK,
-        )
+        if serializer.is_valid():
+            # Nickname 수정
+            nick_name = serializer.validated_data.get("nick_name")
+            if nick_name:
+                user.nick_name = nick_name
+
+            # 프로필 이미지 수정
+            profile_img = request.FILES.get("profile_img")
+            if profile_img:
+                try:
+                    # NCP에 업로드하고 URL을 반환
+                    uploaded_url = upload_image_to_ncp(profile_img, str(user.uuid))
+                    user.profile_img = uploaded_url
+                    logger.info(f"Profile image uploaded to NCP: {uploaded_url}")
+                except Exception as e:
+                    return Response(
+                        {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # 프로필 업데이트
+            user.is_updated = timezone.now()
+            user.save()
+            logger.info(
+                f"USER:{user.nick_name}, {user.profile_img} 프로필 이미지 저장 성공"
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserWithdrawView(generics.GenericAPIView):
