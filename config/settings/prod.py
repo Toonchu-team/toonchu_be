@@ -9,6 +9,7 @@ ALLOWED_HOSTS = [
     ENV.get("DB_HOST"),
     "localhost",
     "api.toonchu.com",
+    "www.toonchu.com",
 ]
 
 # CORS 설정 (운영 환경)
@@ -19,8 +20,9 @@ CORS_ALLOWED_ORIGINS = [
     "https://localhost:3000",
     "https://localhost:8000",
     "https://api.toonchu.com",
+    "https://www.toonchu.com",
 ]
-CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE"]
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 CORS_ALLOW_HEADERS = ["*"]
 
 
