@@ -50,6 +50,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "provider",
             "is_hidden",
             "is_created",
+            "is_staff",
             "is_updated",
         )
 
