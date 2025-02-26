@@ -4,11 +4,11 @@ from config.settings.base import *
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    "https://toonchu-fe.vercel.app/",
-    "https://toonchu.com",
+    "toonchu-fe.vercel.app",
+    "toonchu.com",
     ENV.get("DB_HOST"),
     "localhost",
-    "toonchu.com",
+    "api.toonchu.com",
 ]
 
 # CORS 설정 (운영 환경)
@@ -18,6 +18,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://toonchu.com",
     "https://localhost:3000",
     "https://localhost:8000",
+    "https://api.toonchu.com",
 ]
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE"]
 CORS_ALLOW_HEADERS = ["*"]
