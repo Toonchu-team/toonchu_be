@@ -8,6 +8,7 @@ ALLOWED_HOSTS = [
     "https://toonchu.com",
     ENV.get("DB_HOST"),
     "localhost",
+    "toonchu.com",
 ]
 
 # CORS 설정 (운영 환경)
