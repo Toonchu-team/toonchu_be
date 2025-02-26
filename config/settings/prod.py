@@ -2,12 +2,12 @@ from .base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
-#
-# ALLOWED_HOSTS = [
-#     "https://toonchu-fe.vercel.app/",
-#     "http://be.toonchu.kro.kr/",
-#     ENV.get("DB_HOST"),
-# ]
+
+ALLOWED_HOSTS = [
+    "https://toonchu-fe.vercel.app/",
+    "https://toonchu.com",
+    ENV.get("DB_HOST"),
+]
 
 # CORS 설정 (운영 환경)
 CORS_ALLOW_CREDENTIALS = True
