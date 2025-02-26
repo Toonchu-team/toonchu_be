@@ -7,6 +7,7 @@ ALLOWED_HOSTS = [
     "https://toonchu-fe.vercel.app/",
     "https://toonchu.com",
     ENV.get("DB_HOST"),
+    "localhost",
 ]
 
 # CORS 설정 (운영 환경)
@@ -14,6 +15,8 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "https://toonchu-fe.vercel.app",
     "https://toonchu.com",
+    "https://localhost:3000",
+    "https://localhost:8000",
 ]
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE"]
 CORS_ALLOW_HEADERS = ["*"]
