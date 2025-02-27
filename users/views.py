@@ -13,7 +13,6 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from img_utils import upload_file_to_s3
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.generics import GenericAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -34,6 +33,7 @@ from users.serializers import (
     UserProfileSerializer,
 )
 
+from .img_utils import upload_file_to_s3
 from .utils import RendomNickName
 
 User = get_user_model()
