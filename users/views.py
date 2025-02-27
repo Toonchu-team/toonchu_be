@@ -33,6 +33,7 @@ from users.serializers import (
     UserProfileSerializer,
 )
 
+from .img_utils import upload_file_to_s3
 from .utils import RendomNickName
 
 User = get_user_model()
@@ -377,16 +378,6 @@ class UserProfileUpdateView(APIView):
         return self.serializer_class(*args, **kwargs)
 
     @extend_schema(
-        summary="사용자 프로필 조회",
-        description="현재 로그인한 사용자의 프로필 정보를 조회합니다.",
-        responses={200: UserProfileSerializer},
-    )
-    def get(self, request, *args, **kwargs):
-        user = self.get_object()
-        serializer = self.get_serializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    @extend_schema(
         summary="사용자 프로필 업데이트 (PATCH)",
         description="현재 로그인한 사용자의 프로필 정보를 업데이트합니다. 닉네임과 프로필 이미지를 수정할 수 있습니다.",
         request=UserProfileSerializer,
@@ -405,14 +396,13 @@ class UserProfileUpdateView(APIView):
                 user.nick_name = nick_name
 
             # 프로필 이미지 수정
-            profile_img = request.FILES.get("profile_img")
-            if profile_img:
+            if "profile_img" in request.FILES:
                 try:
-                    # NCP에 업로드하고 URL을 반환
-                    uploaded_url = upload_image_to_ncp(profile_img, str(user.uuid))
+                    # NCP Object Storage에 업로드하고 URL을 반환
+                    uploaded_url = upload_file_to_s3(request)
                     user.profile_img = uploaded_url
                     logger.info(f"Profile image uploaded to NCP: {uploaded_url}")
-                except Exception as e:
+                except ValueError as e:
                     return Response(
                         {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
                     )
