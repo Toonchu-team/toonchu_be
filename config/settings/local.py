@@ -2,7 +2,7 @@ import os
 
 import boto3
 
-from .base import *
+from config.settings.base import *
 
 DEBUG = True
 
