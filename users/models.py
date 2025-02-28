@@ -44,7 +44,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True, null=False)  # unique=True 제거
     nick_name = models.CharField(max_length=100, unique=True, null=True)
     provider = models.CharField(max_length=50, null=True, blank=True)
-    profile_img = models.URLField(blank=True, null=True)
+    profile_img = models.URLField(
+        blank=True, null=True
+    )  # Imagefield 보다 URLfield가 더 적합하다는 판단으로 수정(기존 유저의 프로필 이미지 백업후 진행함)
     is_adult = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_updated = models.DateTimeField(null=True, blank=True)
