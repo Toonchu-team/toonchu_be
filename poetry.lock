@@ -302,6 +302,19 @@ files = [
 django = ">=1.4"
 
 [[package]]
+name = "django-sslserver"
+version = "0.22"
+description = "An SSL-enabled development server for Django"
+optional = false
+python-versions = "*"
+files = [
+    {file = "django_sslserver-0.22-py3-none-any.whl", hash = "sha256:c598a363d2ccdc2421c08ddb3d8b0973f80e8e47a3a5b74e4a2896f21c2947c5"},
+]
+
+[package.dependencies]
+Django = ">=1.8"
+
+[[package]]
 name = "django-storages"
 version = "1.14.5"
 description = "Support for many storage backends in Django"
@@ -998,4 +1011,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "6e1699da7ae5d144c3f3c044c19db5361191557ce20c6a8e9d1497ef557f38a2"
+content-hash = "29295477e3965b770082b30340f7ad17cc7f520fdcb4751c3091ceceb1d81dd5"
