@@ -3,10 +3,10 @@ import uuid
 import boto3
 from django.conf import settings
 
-ACCESS_KEY = settings.NCP_ACCESS_KEY
-SECRET_KEY = settings.NCP_SECRET_KEY
-ENDPOINT_URL = settings.NCP_OBJECT_STORAGE_ENDPOINT
-BUCKET_NAME = settings.BUCKET_NAME
+ACCESS_KEY = settings.NCP_ACCESS_KEY_ID
+SECRET_KEY = settings.NCP_SECRET_ACCESS_KEY
+ENDPOINT_URL = settings.NCP_S3_ENDPOINT_URL
+BUCKET_NAME = settings.NCP_STORAGE_BUCKET_NAME
 
 s3_client = boto3.client(
     "s3",
