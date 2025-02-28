@@ -17,8 +17,8 @@ s3_client = boto3.client(
 
 
 def upload_file_to_s3(request):
-    if request.FILES.get("users"):
-        file_obj = request.FILES["users"]
+    if request.FILES.get("profile_img"):
+        file_obj = request.FILES["profile_img"]
 
         # 파일명 중복 방지를 위해 UUID 추가
         file_name = f"users/profile/{uuid.uuid4()}_{file_obj.name}"
